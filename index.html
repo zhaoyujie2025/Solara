@@ -1648,6 +1648,24 @@
         }
     }
 
+    function preferHttpsUrl(url) {
+        if (!url || typeof url !== "string") return url;
+
+        try {
+            const parsedUrl = new URL(url, window.location.href);
+            if (parsedUrl.protocol === "http:" && window.location.protocol === "https:") {
+                parsedUrl.protocol = "https:";
+                return parsedUrl.toString();
+            }
+            return parsedUrl.toString();
+        } catch (error) {
+            if (window.location.protocol === "https:" && url.startsWith("http://")) {
+                return "https://" + url.substring("http://".length);
+            }
+            return url;
+        }
+    }
+
     const SOURCE_OPTIONS = [
         { value: "netease", label: "网易云音乐" },
         { value: "kuwo", label: "酷我音乐" },
@@ -3105,11 +3123,16 @@
                 throw new Error('无法获取音频播放地址');
             }
 
-            state.currentAudioUrl = audioData.url;
+            const preferredAudioUrl = preferHttpsUrl(audioData.url);
+            if (preferredAudioUrl !== audioData.url) {
+                debugLog(`音频地址由 HTTP 升级为 HTTPS: ${preferredAudioUrl}`);
+            }
+
+            state.currentAudioUrl = preferredAudioUrl;
             state.currentSong = song;
 
             dom.audioPlayer.pause();
-            dom.audioPlayer.src = audioData.url;
+            dom.audioPlayer.src = preferredAudioUrl;
             dom.audioPlayer.load();
 
             if (!preserveProgress) {
@@ -3435,13 +3458,18 @@
             const audioData = await API.jsonpRequest(audioUrl);
 
             if (audioData && audioData.url) {
+                const preferredAudioUrl = preferHttpsUrl(audioData.url);
+                if (preferredAudioUrl !== audioData.url) {
+                    debugLog(`下载链接由 HTTP 升级为 HTTPS: ${preferredAudioUrl}`);
+                }
+
                 const link = document.createElement("a");
-                link.href = audioData.url;
+                link.href = preferredAudioUrl;
                 const preferredExtension =
                     quality === "999" ? "flac" : quality === "740" ? "ape" : "mp3";
                 const fileExtension = (() => {
                     try {
-                        const url = new URL(audioData.url);
+                        const url = new URL(preferredAudioUrl);
                         const pathname = url.pathname || "";
                         const match = pathname.match(/\.([a-z0-9]+)$/i);
                         if (match) {

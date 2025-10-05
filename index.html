@@ -1644,6 +1644,8 @@
 
     const PLACEHOLDER_HTML = `<div class="placeholder"><i class="fas fa-music"></i></div>`;
     const paletteCache = new Map();
+    const PALETTE_STORAGE_KEY = "paletteCache.v1";
+    let paletteAbortController = null;
     const themeDefaults = {
         light: {
             gradient: "",
@@ -1683,6 +1685,36 @@
         } catch (error) {
             console.warn("解析本地存储 JSON 失败", error);
             return fallback;
+        }
+    }
+
+    function loadStoredPalettes() {
+        const stored = safeGetLocalStorage(PALETTE_STORAGE_KEY);
+        if (!stored) {
+            return;
+        }
+
+        try {
+            const entries = JSON.parse(stored);
+            if (Array.isArray(entries)) {
+                for (const entry of entries) {
+                    if (Array.isArray(entry) && typeof entry[0] === "string" && entry[1] && typeof entry[1] === "object") {
+                        paletteCache.set(entry[0], entry[1]);
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn("解析调色板缓存失败", error);
+        }
+    }
+
+    function persistPaletteCache() {
+        const maxEntries = 20;
+        const entries = Array.from(paletteCache.entries()).slice(-maxEntries);
+        try {
+            safeSetLocalStorage(PALETTE_STORAGE_KEY, JSON.stringify(entries));
+        } catch (error) {
+            console.warn("保存调色板缓存失败", error);
         }
     }
 
@@ -1993,6 +2025,10 @@
 
     function resetDynamicBackground() {
         paletteRequestId += 1;
+        if (paletteAbortController) {
+            paletteAbortController.abort();
+            paletteAbortController = null;
+        }
         state.dynamicPalette = null;
         state.currentPaletteImage = null;
         applyDynamicGradient();
@@ -2009,12 +2045,17 @@
         dom.albumCover.classList.remove("loading");
     }
 
-    async function fetchPaletteData(imageUrl) {
+    loadStoredPalettes();
+
+    async function fetchPaletteData(imageUrl, signal) {
         if (paletteCache.has(imageUrl)) {
-            return paletteCache.get(imageUrl);
+            const cached = paletteCache.get(imageUrl);
+            paletteCache.delete(imageUrl);
+            paletteCache.set(imageUrl, cached);
+            return cached;
         }
 
-        const response = await fetch(`/palette?image=${encodeURIComponent(imageUrl)}`);
+        const response = await fetch(`/palette?image=${encodeURIComponent(imageUrl)}`, { signal });
         const raw = await response.text();
         let payload = null;
         try {
@@ -2033,7 +2074,11 @@
         }
 
         const data = payload;
+        if (paletteCache.has(imageUrl)) {
+            paletteCache.delete(imageUrl);
+        }
         paletteCache.set(imageUrl, data);
+        persistPaletteCache();
         return data;
     }
 
@@ -2046,13 +2091,36 @@
             return;
         }
 
+        if (paletteAbortController) {
+            paletteAbortController.abort();
+            paletteAbortController = null;
+        }
+
+        if (paletteCache.has(imageUrl)) {
+            const cached = paletteCache.get(imageUrl);
+            paletteCache.delete(imageUrl);
+            paletteCache.set(imageUrl, cached);
+            state.dynamicPalette = cached;
+            state.currentPaletteImage = imageUrl;
+            applyDynamicGradient();
+            return;
+        }
+
         if (state.currentPaletteImage === imageUrl && state.dynamicPalette) {
             applyDynamicGradient();
             return;
         }
 
+        let controller = null;
         try {
-            const palette = await fetchPaletteData(imageUrl);
+            if (paletteAbortController) {
+                paletteAbortController.abort();
+            }
+
+            controller = new AbortController();
+            paletteAbortController = controller;
+
+            const palette = await fetchPaletteData(imageUrl, controller.signal);
             if (requestId !== paletteRequestId) {
                 return;
             }
@@ -2060,9 +2128,16 @@
             state.currentPaletteImage = imageUrl;
             applyDynamicGradient();
         } catch (error) {
+            if (error?.name === "AbortError") {
+                return;
+            }
             console.warn("获取动态背景失败:", error);
             if (requestId === paletteRequestId) {
                 resetDynamicBackground();
+            }
+        } finally {
+            if (controller && paletteAbortController === controller) {
+                paletteAbortController = null;
             }
         }
     }

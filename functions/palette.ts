@@ -1,7 +1,7 @@
 import decodeJpeg from "./lib/vendor/jpeg-decoder.js";
 
-const MAX_DIMENSION = 120;
-const TARGET_SAMPLE_COUNT = 4000;
+const MAX_DIMENSION = 96;
+const TARGET_SAMPLE_COUNT = 2400;
 
 type SupportedFormat = "jpeg" | "jpg" | "pjpeg";
 
@@ -389,12 +389,37 @@ export async function onRequest({ request }: { request: Request }): Promise<Resp
     });
   }
 
-  const upstream = await fetch(target.toString(), {
-    cf: {
-      cacheTtl: 3600,
-      cacheEverything: true,
-    },
-  });
+  const cache = caches.default;
+  const cacheKey = new Request(request.url, request);
+  const cachedResponse = await cache.match(cacheKey);
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(target.toString(), {
+      cf: {
+        cacheTtl: 3600,
+        cacheEverything: true,
+        image: {
+          width: MAX_DIMENSION,
+          height: MAX_DIMENSION,
+          fit: "scale-down",
+          quality: 85,
+          format: "jpeg",
+        },
+      },
+    });
+  } catch (error) {
+    console.warn("Image resizing fetch failed, falling back to original", error);
+    upstream = await fetch(target.toString(), {
+      cf: {
+        cacheTtl: 3600,
+        cacheEverything: true,
+      },
+    });
+  }
 
   if (!upstream.ok) {
     return new Response(JSON.stringify({ error: `Upstream request failed with status ${upstream.status}` }), {
@@ -417,10 +442,18 @@ export async function onRequest({ request }: { request: Request }): Promise<Resp
     const palette = await buildPalette(buffer, contentType);
     palette.source = target.toString();
 
-    return new Response(JSON.stringify(palette), {
+    const response = new Response(JSON.stringify(palette), {
       status: 200,
       headers: createJsonHeaders(200),
     });
+
+    try {
+      await cache.put(cacheKey, response.clone());
+    } catch (cacheError) {
+      console.warn("Failed to cache palette response", cacheError);
+    }
+
+    return response;
   } catch (error) {
     if (error instanceof UnsupportedImageFormatError) {
       return new Response(JSON.stringify({ error: error.message }), {

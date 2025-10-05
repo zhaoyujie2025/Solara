@@ -268,6 +268,7 @@
             border-radius: 12px;
             box-shadow: 0 12px 30px rgba(0,0,0,0.18);
             border: 1px solid var(--border-color);
+            box-sizing: border-box;
             min-width: 100%;
             max-height: 320px;
             overflow-y: auto;
@@ -2143,32 +2144,26 @@
 
         const menu = dom.sourceMenu;
         const buttonRect = dom.sourceSelectButton.getBoundingClientRect();
-        const viewportWidth = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
         const viewportHeight = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
-        const spacing = 12;
+        const spacing = 10;
 
         menu.classList.add("floating");
-        menu.style.width = "auto";
-        menu.style.maxWidth = `${Math.max(0, viewportWidth - spacing * 2)}px`;
-        const minWidth = Math.min(Math.max(buttonRect.width, 160), Math.max(0, viewportWidth - spacing * 2));
-        menu.style.minWidth = `${minWidth}px`;
+        const buttonWidth = Math.round(buttonRect.width);
+        const effectiveWidth = Math.max(buttonWidth, 0);
+
+        menu.style.width = `${effectiveWidth}px`;
+        menu.style.minWidth = `${effectiveWidth}px`;
+        menu.style.maxWidth = `${effectiveWidth}px`;
 
         const menuRect = menu.getBoundingClientRect();
-        const menuWidth = menuRect.width;
         const menuHeight = menuRect.height;
 
-        let left = buttonRect.left;
-        if (left + menuWidth > viewportWidth - spacing) {
-            left = Math.max(spacing, viewportWidth - spacing - menuWidth);
-        }
-        if (left < spacing) {
-            left = spacing;
-        }
+        let left = Math.round(buttonRect.left);
 
-        let top = buttonRect.bottom + spacing;
+        let top = Math.round(buttonRect.bottom + spacing);
         let openUpwards = false;
         if (top + menuHeight > viewportHeight - spacing) {
-            const upwardTop = buttonRect.top - spacing - menuHeight;
+            const upwardTop = Math.round(buttonRect.top - spacing - menuHeight);
             if (upwardTop >= spacing) {
                 top = upwardTop;
                 openUpwards = true;

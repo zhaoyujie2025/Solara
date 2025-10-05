@@ -75,6 +75,20 @@
             color: #ffffff;
         }
 
+        .dark-mode .source-menu {
+            background: rgba(44, 44, 44, 0.95);
+            border-color: var(--primary-color);
+        }
+
+        .dark-mode .source-option {
+            color: #ecf0f1;
+        }
+
+        .dark-mode .source-option:hover,
+        .dark-mode .source-option.active {
+            color: #ffffff;
+        }
+
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: var(--scrollbar-track-bg); }
         ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb-bg); border-radius: 3px; }
@@ -199,23 +213,106 @@
             box-shadow: 0 0 0 3px rgba(26, 188, 156, 0.12);
         }
 
-        .source-select {
-            padding: 12px 16px;
-            border: 2px solid var(--border-color);
+        .source-select-wrapper {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .source-select-btn {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 12px 18px;
+            border: 1px solid var(--border-color);
             border-radius: 12px;
             background: var(--component-bg);
             color: var(--text-color);
             font-size: 16px;
             font-family: inherit;
-            outline: none;
+            font-weight: 500;
             cursor: pointer;
-            transition: all 0.3s ease;
-            min-width: 120px;
+            transition: all 0.25s ease;
+            min-width: 150px;
+            position: relative;
+            box-shadow: none;
         }
 
-        .source-select:focus {
+        .source-select-btn:hover,
+        .source-select-btn.active {
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(26, 188, 156, 0.12);
+            color: var(--primary-color);
+            box-shadow: 0 10px 24px rgba(26, 188, 156, 0.2);
+            background: var(--component-bg);
+        }
+
+        .source-select-btn:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(26, 188, 156, 0.18);
+        }
+
+        .source-select-btn .caret-icon {
+            font-size: 0.8em;
+            transition: transform 0.25s ease;
+        }
+
+        .source-select-btn.active .caret-icon {
+            transform: rotate(-180deg);
+        }
+
+        .source-menu {
+            position: absolute;
+            top: calc(100% + 10px);
+            left: 0;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+            border: 1px solid var(--border-color);
+            min-width: 100%;
+            overflow: hidden;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.2s ease;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 100000;
+            pointer-events: none;
+        }
+
+        .source-menu.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .source-option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 16px;
+            font-size: 0.95em;
+            color: var(--text-color);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: transparent;
+        }
+
+        .source-option:hover,
+        .source-option.active {
+            background: var(--primary-color);
+            color: #ffffff;
+        }
+
+        .source-option i {
+            font-size: 0.85em;
+            opacity: 0.6;
+        }
+
+        .source-option.active i {
+            opacity: 1;
         }
 
         .search-btn {
@@ -1287,8 +1384,13 @@
                 flex-direction: column; 
                 gap: 10px; 
             }
-            .search-input, .search-btn, .source-select { 
-                width: 100%; 
+            .search-input, .search-btn, .source-select-wrapper {
+                width: 100%;
+            }
+
+            .source-select-btn {
+                width: 100%;
+                justify-content: space-between;
             }
 
             .cover-area {
@@ -1376,11 +1478,13 @@
     <div class="search-area">
         <div class="search-container">
             <input type="text" id="searchInput" class="search-input" placeholder="搜索歌曲、歌手或专辑...">
-            <select id="sourceSelect" class="source-select">
-                <option value="netease">网易云音乐</option>
-                <option value="kuwo">酷我音乐</option>
-                <option value="joox">JOOX音乐</option>
-            </select>
+            <div class="source-select-wrapper" id="sourceSelectWrapper">
+                <button id="sourceSelectButton" class="source-select-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+                    <span id="sourceSelectLabel">网易云音乐</span>
+                    <i class="fas fa-chevron-down caret-icon" aria-hidden="true"></i>
+                </button>
+                <div id="sourceMenu" class="source-menu" role="listbox" aria-labelledby="sourceSelectButton"></div>
+            </div>
             <button id="searchBtn" class="search-btn">
                 <i class="fas fa-search"></i>
                 <span>搜索</span>
@@ -1473,7 +1577,9 @@
         showLyricsBtn: document.getElementById("showLyricsBtn"),
         searchInput: document.getElementById("searchInput"),
         searchBtn: document.getElementById("searchBtn"),
-        sourceSelect: document.getElementById("sourceSelect"),
+        sourceSelectButton: document.getElementById("sourceSelectButton"),
+        sourceSelectLabel: document.getElementById("sourceSelectLabel"),
+        sourceMenu: document.getElementById("sourceMenu"),
         searchResults: document.getElementById("searchResults"),
         notification: document.getElementById("notification"),
         albumCover: document.getElementById("albumCover"),
@@ -1520,6 +1626,17 @@
         }
     }
 
+    const SOURCE_OPTIONS = [
+        { value: "netease", label: "网易云音乐" },
+        { value: "kuwo", label: "酷我音乐" },
+        { value: "joox", label: "JOOX音乐" }
+    ];
+
+    function normalizeSource(value) {
+        const allowed = SOURCE_OPTIONS.map(option => option.value);
+        return allowed.includes(value) ? value : SOURCE_OPTIONS[0].value;
+    }
+
     const QUALITY_OPTIONS = [
         { value: "128", label: "标准音质", description: "128 kbps" },
         { value: "192", label: "高品音质", description: "192 kbps" },
@@ -1559,6 +1676,11 @@
             return Math.min(Math.max(volume, 0), 1);
         }
         return 0.8;
+    })();
+
+    const savedSearchSource = (() => {
+        const stored = safeGetLocalStorage("searchSource");
+        return normalizeSource(stored);
     })();
 
     const savedPlaybackTime = (() => {
@@ -1688,7 +1810,7 @@
         currentPlaylist: savedCurrentPlaylist, // 'online', 'search', or 'playlist'
         searchPage: 1,
         searchKeyword: "", // 确保这里有初始值
-        searchSource: "",
+        searchSource: savedSearchSource,
         hasMoreResults: true,
         currentSong: savedCurrentSong,
         debugMode: false,
@@ -1702,6 +1824,7 @@
         pendingSeekTime: null,
         isSeeking: false,
         qualityMenuOpen: false,
+        sourceMenuOpen: false,
         userScrolledLyrics: false, // 新增：用户是否手动滚动歌词
         lyricsScrollTimeout: null, // 新增：歌词滚动超时
     };
@@ -2083,6 +2206,376 @@
         }
     }
 
+    // 新增：播放模式切换
+    function togglePlayMode() {
+        const modes = ["list", "single", "random"];
+        const currentIndex = modes.indexOf(state.playMode);
+        const nextIndex = (currentIndex + 1) % modes.length;
+        state.playMode = modes[nextIndex];
+
+        updatePlayModeUI();
+        savePlayerState();
+
+        const modeText = playModeTexts[state.playMode] || playModeTexts.list;
+        showNotification(`播放模式: ${modeText}`);
+        debugLog(`播放模式切换为: ${state.playMode}`);
+    }
+
+    function formatTime(seconds) {
+        if (!Number.isFinite(seconds) || seconds < 0) {
+            return "00:00";
+        }
+        const totalSeconds = Math.floor(seconds);
+        const minutes = Math.floor(totalSeconds / 60);
+        const secs = totalSeconds % 60;
+        return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+    }
+
+    function updatePlayPauseButton() {
+        if (!dom.playPauseBtn) return;
+        const isPlaying = !dom.audioPlayer.paused && !dom.audioPlayer.ended;
+        dom.playPauseBtn.innerHTML = `<i class="fas ${isPlaying ? "fa-pause" : "fa-play"}"></i>`;
+        dom.playPauseBtn.title = isPlaying ? "暂停" : "播放";
+    }
+
+    function updateProgressBarBackground(value = Number(dom.progressBar.value), max = Number(dom.progressBar.max)) {
+        const duration = Number.isFinite(max) && max > 0 ? max : 0;
+        const progressValue = Number.isFinite(value) ? Math.max(value, 0) : 0;
+        const percent = duration > 0 ? Math.min(progressValue / duration, 1) * 100 : 0;
+        dom.progressBar.style.setProperty("--progress", `${percent}%`);
+    }
+
+    function updateVolumeSliderBackground(volume = dom.audioPlayer.volume) {
+        const clamped = Math.min(Math.max(Number.isFinite(volume) ? volume : 0, 0), 1);
+        dom.volumeSlider.style.setProperty("--volume-progress", `${clamped * 100}%`);
+    }
+
+    function updateVolumeIcon(volume) {
+        if (!dom.volumeIcon) return;
+        const clamped = Math.min(Math.max(Number.isFinite(volume) ? volume : 0, 0), 1);
+        let icon = "fa-volume-high";
+        if (clamped === 0) {
+            icon = "fa-volume-xmark";
+        } else if (clamped < 0.4) {
+            icon = "fa-volume-low";
+        }
+        dom.volumeIcon.className = `fas ${icon}`;
+    }
+
+    function onAudioVolumeChange() {
+        const volume = dom.audioPlayer.volume;
+        state.volume = volume;
+        dom.volumeSlider.value = volume;
+        updateVolumeSliderBackground(volume);
+        updateVolumeIcon(volume);
+        savePlayerState();
+    }
+
+    function handleVolumeChange(event) {
+        const volume = Number.parseFloat(event.target.value);
+        const clamped = Number.isFinite(volume) ? Math.min(Math.max(volume, 0), 1) : dom.audioPlayer.volume;
+        dom.audioPlayer.volume = clamped;
+        state.volume = clamped;
+        updateVolumeSliderBackground(clamped);
+        updateVolumeIcon(clamped);
+        safeSetLocalStorage("playerVolume", String(clamped));
+    }
+
+    function handleTimeUpdate() {
+        const currentTime = dom.audioPlayer.currentTime || 0;
+        if (!state.isSeeking) {
+            dom.progressBar.value = currentTime;
+            dom.currentTimeDisplay.textContent = formatTime(currentTime);
+            updateProgressBarBackground(currentTime, Number(dom.progressBar.max));
+        }
+
+        syncLyrics();
+
+        state.currentPlaybackTime = currentTime;
+        if (Math.abs(currentTime - state.lastSavedPlaybackTime) >= 2) {
+            state.lastSavedPlaybackTime = currentTime;
+            safeSetLocalStorage("currentPlaybackTime", currentTime.toFixed(1));
+        }
+    }
+
+    function handleLoadedMetadata() {
+        const duration = dom.audioPlayer.duration || 0;
+        dom.progressBar.max = duration;
+        dom.durationDisplay.textContent = formatTime(duration);
+        updateProgressBarBackground(dom.audioPlayer.currentTime || 0, duration);
+
+        if (state.pendingSeekTime != null) {
+            setAudioCurrentTime(state.pendingSeekTime);
+            state.pendingSeekTime = null;
+        }
+    }
+
+    function setAudioCurrentTime(time) {
+        if (!Number.isFinite(time)) return;
+        const duration = dom.audioPlayer.duration || Number(dom.progressBar.max) || 0;
+        const clamped = duration > 0 ? Math.min(Math.max(time, 0), duration) : Math.max(time, 0);
+        try {
+            dom.audioPlayer.currentTime = clamped;
+        } catch (error) {
+            console.warn("设置播放进度失败", error);
+        }
+        dom.progressBar.value = clamped;
+        dom.currentTimeDisplay.textContent = formatTime(clamped);
+        updateProgressBarBackground(clamped, duration);
+        state.currentPlaybackTime = clamped;
+    }
+
+    function handleProgressInput() {
+        state.isSeeking = true;
+        const value = Number(dom.progressBar.value);
+        dom.currentTimeDisplay.textContent = formatTime(value);
+        updateProgressBarBackground(value, Number(dom.progressBar.max));
+    }
+
+    function handleProgressChange() {
+        const value = Number(dom.progressBar.value);
+        state.isSeeking = false;
+        seekAudio(value);
+    }
+
+    function seekAudio(value) {
+        if (!Number.isFinite(value)) return;
+        setAudioCurrentTime(value);
+        state.lastSavedPlaybackTime = state.currentPlaybackTime;
+        safeSetLocalStorage("currentPlaybackTime", state.currentPlaybackTime.toFixed(1));
+    }
+
+    async function togglePlayPause() {
+        if (!state.currentSong) {
+            if (state.playlistSongs.length > 0) {
+                const targetIndex = state.currentTrackIndex >= 0 && state.currentTrackIndex < state.playlistSongs.length
+                    ? state.currentTrackIndex
+                    : 0;
+                await playPlaylistSong(targetIndex);
+            } else {
+                showNotification("播放列表为空，请先添加歌曲", "error");
+            }
+            return;
+        }
+
+        if (!dom.audioPlayer.src) {
+            try {
+                await playSong(state.currentSong, {
+                    autoplay: true,
+                    startTime: state.currentPlaybackTime,
+                    preserveProgress: true,
+                });
+            } catch (error) {
+                console.error("恢复播放失败:", error);
+                showNotification("播放失败，请稍后重试", "error");
+            }
+            return;
+        }
+
+        if (dom.audioPlayer.paused) {
+            const playPromise = dom.audioPlayer.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.error("播放失败:", error);
+                    showNotification("播放失败，请检查网络连接", "error");
+                });
+            }
+        } else {
+            dom.audioPlayer.pause();
+        }
+    }
+
+    function buildSourceMenu() {
+        if (!dom.sourceMenu) return;
+        const optionsHtml = SOURCE_OPTIONS.map(option => {
+            const isActive = option.value === state.searchSource;
+            return `
+                <div class="source-option${isActive ? " active" : ""}" data-source="${option.value}" role="option" aria-selected="${isActive}">
+                    <span>${option.label}</span>
+                    ${isActive ? '<i class="fas fa-check" aria-hidden="true"></i>' : ""}
+                </div>
+            `;
+        }).join("");
+        dom.sourceMenu.innerHTML = optionsHtml;
+    }
+
+    function updateSourceLabel() {
+        const option = SOURCE_OPTIONS.find(item => item.value === state.searchSource) || SOURCE_OPTIONS[0];
+        if (!option || !dom.sourceSelectLabel || !dom.sourceSelectButton) return;
+        dom.sourceSelectLabel.textContent = option.label;
+        dom.sourceSelectButton.dataset.source = option.value;
+        dom.sourceSelectButton.setAttribute("aria-expanded", state.sourceMenuOpen ? "true" : "false");
+        dom.sourceSelectButton.setAttribute("aria-label", `当前音源：${option.label}，点击切换音源`);
+        dom.sourceSelectButton.setAttribute("title", `音源：${option.label}`);
+    }
+
+    function openSourceMenu() {
+        if (!dom.sourceMenu) return;
+        buildSourceMenu();
+        dom.sourceMenu.classList.add("show");
+        dom.sourceSelectButton.classList.add("active");
+        dom.sourceSelectButton.setAttribute("aria-expanded", "true");
+        state.sourceMenuOpen = true;
+    }
+
+    function closeSourceMenu() {
+        if (!dom.sourceMenu) return;
+        dom.sourceMenu.classList.remove("show");
+        dom.sourceSelectButton.classList.remove("active");
+        dom.sourceSelectButton.setAttribute("aria-expanded", "false");
+        state.sourceMenuOpen = false;
+    }
+
+    function toggleSourceMenu(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (state.sourceMenuOpen) {
+            closeSourceMenu();
+        } else {
+            openSourceMenu();
+        }
+    }
+
+    function handleSourceSelection(event) {
+        const option = event.target.closest(".source-option");
+        if (!option) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const { source } = option.dataset;
+        if (source) {
+            selectSearchSource(source);
+        }
+    }
+
+    function selectSearchSource(source) {
+        const normalized = normalizeSource(source);
+        if (normalized === state.searchSource) {
+            closeSourceMenu();
+            return;
+        }
+        state.searchSource = normalized;
+        safeSetLocalStorage("searchSource", normalized);
+        updateSourceLabel();
+        buildSourceMenu();
+        closeSourceMenu();
+    }
+
+    function buildQualityMenu() {
+        if (!dom.playerQualityMenu) return;
+        const optionsHtml = QUALITY_OPTIONS.map(option => {
+            const isActive = option.value === state.playbackQuality;
+            return `
+                <div class="player-quality-option${isActive ? " active" : ""}" data-quality="${option.value}">
+                    <span>${option.label}</span>
+                    <small>${option.description}</small>
+                </div>
+            `;
+        }).join("");
+        dom.playerQualityMenu.innerHTML = optionsHtml;
+    }
+
+    function updateQualityLabel() {
+        const option = QUALITY_OPTIONS.find(item => item.value === state.playbackQuality) || QUALITY_OPTIONS[0];
+        if (!option) return;
+        dom.qualityLabel.textContent = option.label;
+        dom.qualityToggle.title = `音质: ${option.label} (${option.description})`;
+    }
+
+    function togglePlayerQualityMenu(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (state.qualityMenuOpen) {
+            closePlayerQualityMenu();
+        } else {
+            openPlayerQualityMenu();
+        }
+    }
+
+    function openPlayerQualityMenu() {
+        dom.playerQualityMenu.classList.add("show");
+        dom.qualityToggle.classList.add("active");
+        state.qualityMenuOpen = true;
+    }
+
+    function closePlayerQualityMenu() {
+        dom.playerQualityMenu.classList.remove("show");
+        dom.qualityToggle.classList.remove("active");
+        state.qualityMenuOpen = false;
+    }
+
+    function handlePlayerQualitySelection(event) {
+        const option = event.target.closest(".player-quality-option");
+        if (!option) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const { quality } = option.dataset;
+        if (quality) {
+            selectPlaybackQuality(quality);
+        }
+    }
+
+    async function selectPlaybackQuality(quality) {
+        const normalized = normalizeQuality(quality);
+        if (normalized === state.playbackQuality) {
+            closePlayerQualityMenu();
+            return;
+        }
+
+        state.playbackQuality = normalized;
+        updateQualityLabel();
+        buildQualityMenu();
+        savePlayerState();
+        closePlayerQualityMenu();
+
+        const option = QUALITY_OPTIONS.find(item => item.value === normalized);
+        if (option) {
+            showNotification(`音质已切换为 ${option.label} (${option.description})`);
+        }
+
+        if (state.currentSong) {
+            const success = await reloadCurrentSong();
+            if (!success) {
+                showNotification("切换音质失败，请稍后重试", "error");
+            }
+        }
+    }
+
+    async function reloadCurrentSong() {
+        if (!state.currentSong) return true;
+        const wasPlaying = !dom.audioPlayer.paused;
+        const targetTime = dom.audioPlayer.currentTime || state.currentPlaybackTime || 0;
+        try {
+            await playSong(state.currentSong, {
+                autoplay: wasPlaying,
+                startTime: targetTime,
+                preserveProgress: true,
+            });
+            if (!wasPlaying) {
+                dom.audioPlayer.pause();
+                updatePlayPauseButton();
+            }
+            return true;
+        } catch (error) {
+            console.error("切换音质失败:", error);
+            return false;
+        }
+    }
+
+    async function restoreCurrentSongState() {
+        if (!state.currentSong) return;
+        try {
+            await playSong(state.currentSong, {
+                autoplay: false,
+                startTime: state.currentPlaybackTime,
+                preserveProgress: true,
+            });
+            dom.audioPlayer.pause();
+            updatePlayPauseButton();
+        } catch (error) {
+            console.warn("恢复音频失败:", error);
+        }
+    }
+
     window.addEventListener("load", setupInteractions);
     dom.audioPlayer.addEventListener("ended", autoPlayNext);
 
@@ -2111,6 +2604,8 @@
         updateVolumeSliderBackground(state.volume);
         updateVolumeIcon(state.volume);
 
+        buildSourceMenu();
+        updateSourceLabel();
         buildQualityMenu();
         updateQualityLabel();
         updatePlayPauseButton();
@@ -2130,6 +2625,10 @@
 
         dom.volumeSlider.addEventListener("input", handleVolumeChange);
 
+        if (dom.sourceSelectButton && dom.sourceMenu) {
+            dom.sourceSelectButton.addEventListener("click", toggleSourceMenu);
+            dom.sourceMenu.addEventListener("click", handleSourceSelection);
+        }
         dom.qualityToggle.addEventListener("click", togglePlayerQualityMenu);
         dom.playerQualityMenu.addEventListener("click", handlePlayerQualitySelection);
 
@@ -2167,6 +2666,12 @@
                 hideSearchResults();
             }
         });
+
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && state.sourceMenuOpen) {
+                closeSourceMenu();
+            }
+        });
         
         // 搜索结果相关事件处理 - 修复加载更多按钮点击问题
         document.addEventListener("click", (e) => {
@@ -2184,6 +2689,14 @@
                 !dom.playerQualityMenu.contains(e.target) &&
                 !dom.qualityToggle.contains(e.target)) {
                 closePlayerQualityMenu();
+            }
+
+            if (state.sourceMenuOpen &&
+                dom.sourceMenu &&
+                dom.sourceSelectButton &&
+                !dom.sourceMenu.contains(e.target) &&
+                !dom.sourceSelectButton.contains(e.target)) {
+                closeSourceMenu();
             }
         });
         
@@ -2315,7 +2828,15 @@
             return;
         }
 
-        const source = dom.sourceSelect.value;
+        if (state.sourceMenuOpen) {
+            closeSourceMenu();
+        }
+
+        const source = normalizeSource(state.searchSource);
+        state.searchSource = source;
+        safeSetLocalStorage("searchSource", source);
+        updateSourceLabel();
+        buildSourceMenu();
         
         // 重置搜索状态
         if (!isLiveSearch) {
@@ -2392,7 +2913,10 @@
             state.searchPage++;
             debugLog(`加载第 ${state.searchPage} 页结果`);
             
-            const results = await API.search(state.searchKeyword, state.searchSource, 20, state.searchPage);
+            const source = normalizeSource(state.searchSource);
+            state.searchSource = source;
+            safeSetLocalStorage("searchSource", source);
+            const results = await API.search(state.searchKeyword, source, 20, state.searchPage);
             
             if (results.length > 0) {
                 state.searchResults = [...state.searchResults, ...results];

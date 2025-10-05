@@ -1319,6 +1319,10 @@
             background: var(--warning-color);
         }
 
+        .notification.warning {
+            background: #f39c12;
+        }
+
         /* 视图切换按钮 - 桌面端隐藏，移动端显示 */
         .view-toggle { 
             display: none;
@@ -3123,17 +3127,20 @@
                 throw new Error('无法获取音频播放地址');
             }
 
-            const preferredAudioUrl = preferHttpsUrl(audioData.url);
-            if (preferredAudioUrl !== audioData.url) {
+            const originalAudioUrl = audioData.url;
+            const preferredAudioUrl = preferHttpsUrl(originalAudioUrl);
+            const candidateAudioUrls = Array.from(
+                new Set([preferredAudioUrl, originalAudioUrl].filter(Boolean))
+            );
+
+            if (preferredAudioUrl && preferredAudioUrl !== originalAudioUrl) {
                 debugLog(`音频地址由 HTTP 升级为 HTTPS: ${preferredAudioUrl}`);
             }
 
-            state.currentAudioUrl = preferredAudioUrl;
             state.currentSong = song;
+            state.currentAudioUrl = null;
 
             dom.audioPlayer.pause();
-            dom.audioPlayer.src = preferredAudioUrl;
-            dom.audioPlayer.load();
 
             if (!preserveProgress) {
                 state.currentPlaybackTime = 0;
@@ -3146,18 +3153,50 @@
 
             state.pendingSeekTime = startTime > 0 ? startTime : null;
 
-            try {
-                await waitForAudioReady(dom.audioPlayer);
-            } catch (error) {
-                console.warn('音频元数据加载异常', error);
+            let selectedAudioUrl = null;
+            let lastAudioError = null;
+            let usedFallbackAudio = false;
+
+            for (const candidateUrl of candidateAudioUrls) {
+                dom.audioPlayer.src = candidateUrl;
+                dom.audioPlayer.load();
+
+                try {
+                    await waitForAudioReady(dom.audioPlayer);
+                    selectedAudioUrl = candidateUrl;
+                    usedFallbackAudio = (
+                        candidateUrl !== preferredAudioUrl &&
+                        candidateAudioUrls.length > 1 &&
+                        preferredAudioUrl !== originalAudioUrl
+                    );
+                    break;
+                } catch (error) {
+                    lastAudioError = error;
+                    console.warn('音频元数据加载异常', error);
+
+                    if (candidateUrl === preferredAudioUrl && candidateAudioUrls.length > 1) {
+                        debugLog('HTTPS 音频加载失败，尝试回退到原始地址');
+                    }
+                }
             }
 
-           if (state.pendingSeekTime != null) {
-               setAudioCurrentTime(state.pendingSeekTime);
-               state.pendingSeekTime = null;
-           } else {
-               setAudioCurrentTime(dom.audioPlayer.currentTime || 0);
-           }
+            if (!selectedAudioUrl) {
+                throw lastAudioError || new Error('音频加载失败');
+            }
+
+            if (usedFallbackAudio) {
+                debugLog(`已回退至原始音频地址: ${selectedAudioUrl}`);
+                showNotification('HTTPS 音频加载失败，已切换到备用音源', 'warning');
+            }
+
+            state.currentAudioUrl = selectedAudioUrl;
+
+            if (state.pendingSeekTime != null) {
+                setAudioCurrentTime(state.pendingSeekTime);
+                state.pendingSeekTime = null;
+            } else {
+                setAudioCurrentTime(dom.audioPlayer.currentTime || 0);
+            }
 
             state.lastSavedPlaybackTime = state.currentPlaybackTime;
 

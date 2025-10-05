@@ -1906,11 +1906,17 @@
     // 新增：显示搜索结果
     function showSearchResults() {
         toggleSearchMode(true);
+        if (state.sourceMenuOpen) {
+            requestAnimationFrame(updateSourceMenuPosition);
+        }
     }
 
     // 新增：隐藏搜索结果 - 优化立即收起
     function hideSearchResults() {
         toggleSearchMode(false);
+        if (state.sourceMenuOpen) {
+            requestAnimationFrame(updateSourceMenuPosition);
+        }
         // 立即清空搜索结果内容
         dom.searchResults.innerHTML = "";
     }
@@ -2145,6 +2151,7 @@
         const menu = dom.sourceMenu;
         const buttonRect = dom.sourceSelectButton.getBoundingClientRect();
         const viewportHeight = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
+        const viewportWidth = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
         const spacing = 10;
 
         menu.classList.add("floating");
@@ -2157,6 +2164,7 @@
 
         const menuRect = menu.getBoundingClientRect();
         const menuHeight = menuRect.height;
+        const menuWidth = Math.round(menuRect.width || effectiveWidth);
 
         let left = Math.round(buttonRect.left);
 
@@ -2171,6 +2179,22 @@
                 top = Math.max(spacing, viewportHeight - spacing - menuHeight);
             }
         }
+
+        const searchArea = dom.sourceSelectButton.closest(".search-area");
+        if (searchArea) {
+            const areaRect = searchArea.getBoundingClientRect();
+            const minAreaLeft = Math.round(areaRect.left + spacing);
+            const maxAreaLeft = Math.round(areaRect.right - spacing - menuWidth);
+            if (minAreaLeft <= maxAreaLeft) {
+                left = Math.min(Math.max(left, minAreaLeft), maxAreaLeft);
+            } else {
+                left = Math.max(left, Math.round(areaRect.left));
+            }
+        }
+
+        const minViewportLeft = spacing;
+        const maxViewportLeft = Math.max(minViewportLeft, Math.round(viewportWidth - spacing - menuWidth));
+        left = Math.min(Math.max(left, minViewportLeft), maxViewportLeft);
 
         menu.style.left = `${left}px`;
         menu.style.top = `${top}px`;

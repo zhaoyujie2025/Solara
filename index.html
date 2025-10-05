@@ -2154,17 +2154,25 @@
         menu.style.maxWidth = "";
 
         const maxAvailableWidth = Math.max(0, viewportWidth - spacing * 2);
-        const baseWidth = Math.max(buttonRect.width, 160);
         const naturalWidth = menu.scrollWidth;
-        let targetWidth = Math.max(baseWidth, naturalWidth);
 
-        if (maxAvailableWidth > 0) {
-            targetWidth = Math.min(targetWidth, maxAvailableWidth);
-        }
+        const effectiveMaxWidth = maxAvailableWidth > 0
+            ? Math.min(maxAvailableWidth, 320)
+            : 320;
+
+        const baseWidth = Math.min(
+            Math.max(buttonRect.width, 160),
+            maxAvailableWidth > 0 ? maxAvailableWidth : Math.max(buttonRect.width, 160)
+        );
+
+        const targetWidth = Math.max(
+            baseWidth,
+            Math.min(naturalWidth, effectiveMaxWidth)
+        );
 
         menu.style.width = `${targetWidth}px`;
-        menu.style.minWidth = `${Math.min(targetWidth, baseWidth)}px`;
-        menu.style.maxWidth = `${maxAvailableWidth > 0 ? maxAvailableWidth : targetWidth}px`;
+        menu.style.minWidth = `${baseWidth}px`;
+        menu.style.maxWidth = `${maxAvailableWidth > 0 ? effectiveMaxWidth : targetWidth}px`;
 
         const menuRect = menu.getBoundingClientRect();
         const menuWidth = menuRect.width;

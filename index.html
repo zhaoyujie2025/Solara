@@ -268,6 +268,7 @@
             border-radius: 12px;
             box-shadow: 0 12px 30px rgba(0,0,0,0.18);
             border: 1px solid var(--border-color);
+            box-sizing: border-box;
             min-width: 100%;
             max-height: 320px;
             overflow-y: auto;
@@ -2148,16 +2149,34 @@
         const spacing = 12;
 
         menu.classList.add("floating");
-        menu.style.width = "auto";
-        menu.style.maxWidth = `${Math.max(0, viewportWidth - spacing * 2)}px`;
-        const minWidth = Math.min(Math.max(buttonRect.width, 160), Math.max(0, viewportWidth - spacing * 2));
-        menu.style.minWidth = `${minWidth}px`;
+
+        const maxAvailableWidth = Math.max(0, viewportWidth - spacing * 2);
+        const naturalWidth = menu.scrollWidth;
+
+        const desiredMinWidth = Math.max(buttonRect.width, 180);
+        const desiredMaxWidth = Math.max(
+            desiredMinWidth,
+            maxAvailableWidth > 0 ? Math.min(maxAvailableWidth, 280) : desiredMinWidth
+        );
+
+        const targetWidth = Math.min(
+            Math.max(desiredMinWidth, naturalWidth),
+            desiredMaxWidth
+        );
+
+        menu.style.width = `${targetWidth}px`;
+        menu.style.minWidth = `${desiredMinWidth}px`;
+        menu.style.maxWidth = `${desiredMaxWidth}px`;
 
         const menuRect = menu.getBoundingClientRect();
         const menuWidth = menuRect.width;
         const menuHeight = menuRect.height;
 
+        const minLeft = spacing;
+        const maxLeft = viewportWidth - spacing - menuWidth;
+
         let left = buttonRect.left;
+
         if (left + menuWidth > viewportWidth - spacing) {
             left = Math.max(spacing, viewportWidth - spacing - menuWidth);
         }

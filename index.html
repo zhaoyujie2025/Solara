@@ -2268,28 +2268,28 @@
     // 新增：滚动到当前歌词 - 修复居中显示问题
     function scrollToCurrentLyric(element) {
         const container = dom.lyrics;
-        const elementTop = element.offsetTop;
-        const elementHeight = element.offsetHeight;
         const containerHeight = container.clientHeight;
-        const containerScrollTop = container.scrollTop;
-        
-        // 计算元素相对于容器顶部的位置
-        const elementRelativeTop = elementTop - containerScrollTop;
-        
-        // 计算让当前歌词居中的滚动位置
-        // 目标：让元素的中心位置对齐到容器的中心位置
-        const targetScrollTop = elementTop - (containerHeight / 2) + (elementHeight / 2);
-        
-        // 确保滚动位置不会超出边界
+        const elementRect = element.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        // 计算元素在容器内部的可视位置，避免受到 offsetParent 影响
+        const elementOffsetTop = elementRect.top - containerRect.top + container.scrollTop;
+        const elementHeight = elementRect.height;
+
+        // 目标滚动位置：让当前歌词的中心与容器中心对齐
+        const targetScrollTop = elementOffsetTop - (containerHeight / 2) + (elementHeight / 2);
+
         const maxScrollTop = container.scrollHeight - containerHeight;
         const finalScrollTop = Math.max(0, Math.min(targetScrollTop, maxScrollTop));
-        
-        container.scrollTo({
-            top: finalScrollTop,
-            behavior: 'smooth'
-        });
-        
-        debugLog(`歌词滚动: 元素位置=${elementTop}, 容器高度=${containerHeight}, 目标滚动=${finalScrollTop}`);
+
+        if (Math.abs(container.scrollTop - finalScrollTop) > 1) {
+            container.scrollTo({
+                top: finalScrollTop,
+                behavior: 'smooth'
+            });
+        }
+
+        debugLog(`歌词滚动: 元素在容器内偏移=${elementOffsetTop}, 容器高度=${containerHeight}, 目标滚动=${finalScrollTop}`);
     }
 
     // 修复：下载歌曲

@@ -264,6 +264,8 @@
             position: absolute;
             top: calc(100% + 10px);
             left: 0;
+            right: auto;
+            bottom: auto;
             background: rgba(255, 255, 255, 0.95);
             border-radius: 12px;
             box-shadow: 0 12px 30px rgba(0,0,0,0.18);
@@ -290,22 +292,15 @@
             pointer-events: auto;
         }
 
-        .source-menu.floating {
-            position: fixed;
-            transform: translateY(0);
-            will-change: opacity, transform;
-        }
-
-        .source-menu.floating:not(.show) {
-            opacity: 0;
-            visibility: hidden;
-        }
-
         .source-menu.open-upwards {
+            top: auto;
+            bottom: calc(100% + 10px);
             transform-origin: bottom center;
         }
 
         .source-menu.open-downwards {
+            top: calc(100% + 10px);
+            bottom: auto;
             transform-origin: top center;
         }
 
@@ -1670,6 +1665,26 @@
         }
     }
 
+    function buildAudioProxyUrl(url) {
+        if (!url || typeof url !== "string") return url;
+
+        try {
+            const parsedUrl = new URL(url, window.location.href);
+            if (parsedUrl.protocol === "https:") {
+                return parsedUrl.toString();
+            }
+
+            if (parsedUrl.protocol === "http:" && /(^|\.)kuwo\.cn$/i.test(parsedUrl.hostname)) {
+                return `${API.baseUrl}?target=${encodeURIComponent(parsedUrl.toString())}`;
+            }
+
+            return parsedUrl.toString();
+        } catch (error) {
+            console.warn("无法解析音频地址，跳过代理", error);
+            return url;
+        }
+    }
+
     const SOURCE_OPTIONS = [
         { value: "netease", label: "网易云音乐" },
         { value: "kuwo", label: "酷我音乐" },
@@ -1747,47 +1762,46 @@
     // API配置 - 修复API地址和请求方式
     const API = {
         name: "GD Studio API",
-        baseUrl: "https://music-api.gdstudio.xyz/api.php",
-        
+        baseUrl: "/proxy",
+
         generateSignature: () => {
             return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         },
 
-        jsonpRequest: (url) => {
-            return new Promise((resolve, reject) => {
-                const callbackName = "jsonp_callback_" + Math.random().toString(36).substr(2, 9);
-                const timestamp = Date.now();
-                const script = document.createElement("script");
-                
-                window[callbackName] = function(data) {
-                    resolve(data);
-                    document.head.removeChild(script);
-                    delete window[callbackName];
-                };
-                
-                const separator = url.includes("?") ? "&" : "?";
-                const finalUrl = `${url}${separator}callback=${callbackName}&_=${timestamp}`;
-                
-                script.src = finalUrl;
-                script.onerror = () => {
-                    reject(new Error("JSONP request failed"));
-                    document.head.removeChild(script);
-                    delete window[callbackName];
-                };
-                
-                document.head.appendChild(script);
-            });
+        fetchJson: async (url) => {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        "Accept": "application/json",
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Request failed with status ${response.status}`);
+                }
+
+                const text = await response.text();
+                try {
+                    return JSON.parse(text);
+                } catch (parseError) {
+                    console.warn("JSON parse failed, returning raw text", parseError);
+                    return text;
+                }
+            } catch (error) {
+                console.error("API request error:", error);
+                throw error;
+            }
         },
 
         search: async (keyword, source = "netease", count = 20, page = 1) => {
             const signature = API.generateSignature();
             const url = `${API.baseUrl}?types=search&source=${source}&name=${encodeURIComponent(keyword)}&count=${count}&pages=${page}&s=${signature}`;
-            
+
             try {
                 debugLog(`API请求: ${url}`);
-                const data = await API.jsonpRequest(url);
+                const data = await API.fetchJson(url);
                 debugLog(`API响应: ${JSON.stringify(data).substring(0, 200)}...`);
-                
+
                 if (!Array.isArray(data)) throw new Error("搜索结果格式错误");
                 
                 return data.map(song => ({
@@ -1810,9 +1824,9 @@
             const source = "netease,kuwo";
             const signature = API.generateSignature();
             const url = `${API.baseUrl}?types=search&source=${source}&name=${encodeURIComponent(keyword)}&count=${count}&pages=${pages}&s=${signature}`;
-            
+
             try {
-                const data = await API.jsonpRequest(url);
+                const data = await API.fetchJson(url);
                 if (!Array.isArray(data) || data.length === 0) throw new Error("No songs found");
                 return data.map(song => ({
                     id: song.id,
@@ -2171,64 +2185,42 @@
         if (!state.sourceMenuOpen || !dom.sourceMenu || !dom.sourceSelectButton) return;
 
         const menu = dom.sourceMenu;
-        const buttonRect = dom.sourceSelectButton.getBoundingClientRect();
-        const viewportHeight = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
-        const viewportWidth = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
+        const button = dom.sourceSelectButton;
         const spacing = 10;
+        const buttonWidth = Math.ceil(button.getBoundingClientRect().width);
+        const effectiveWidth = Math.max(buttonWidth, 140);
 
-        menu.classList.add("floating");
-        const buttonWidth = Math.round(buttonRect.width);
-        const effectiveWidth = Math.max(buttonWidth, 0);
-
+        menu.style.left = "0px";
         menu.style.width = `${effectiveWidth}px`;
         menu.style.minWidth = `${effectiveWidth}px`;
         menu.style.maxWidth = `${effectiveWidth}px`;
 
-        const menuRect = menu.getBoundingClientRect();
-        const menuHeight = menuRect.height;
-        const menuWidth = Math.round(menuRect.width || effectiveWidth);
+        const menuHeight = Math.max(menu.scrollHeight, 0);
+        const buttonRect = button.getBoundingClientRect();
+        const viewportHeight = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
+        const spaceBelow = Math.max(viewportHeight - buttonRect.bottom - spacing, 0);
+        const canOpenUpwards = buttonRect.top - spacing - menuHeight >= 0;
+        const shouldOpenUpwards = menuHeight > spaceBelow && canOpenUpwards;
 
-        let left = Math.round(buttonRect.left);
-
-        let top = Math.round(buttonRect.bottom + spacing);
-        let openUpwards = false;
-        if (top + menuHeight > viewportHeight - spacing) {
-            const upwardTop = Math.round(buttonRect.top - spacing - menuHeight);
-            if (upwardTop >= spacing) {
-                top = upwardTop;
-                openUpwards = true;
-            } else {
-                top = Math.max(spacing, viewportHeight - spacing - menuHeight);
-            }
+        if (shouldOpenUpwards) {
+            menu.classList.add("open-upwards");
+            menu.classList.remove("open-downwards");
+            menu.style.top = "";
+            menu.style.bottom = `${button.offsetHeight + spacing}px`;
+        } else {
+            menu.classList.add("open-downwards");
+            menu.classList.remove("open-upwards");
+            menu.style.bottom = "";
+            menu.style.top = `${button.offsetHeight + spacing}px`;
         }
-
-        const searchArea = dom.sourceSelectButton.closest(".search-area");
-        if (searchArea) {
-            const areaRect = searchArea.getBoundingClientRect();
-            const minAreaLeft = Math.round(areaRect.left + spacing);
-            const maxAreaLeft = Math.round(areaRect.right - spacing - menuWidth);
-            if (minAreaLeft <= maxAreaLeft) {
-                left = Math.min(Math.max(left, minAreaLeft), maxAreaLeft);
-            } else {
-                left = Math.max(left, Math.round(areaRect.left));
-            }
-        }
-
-        const minViewportLeft = spacing;
-        const maxViewportLeft = Math.max(minViewportLeft, Math.round(viewportWidth - spacing - menuWidth));
-        left = Math.min(Math.max(left, minViewportLeft), maxViewportLeft);
-
-        menu.style.left = `${left}px`;
-        menu.style.top = `${top}px`;
-        menu.classList.toggle("open-upwards", openUpwards);
-        menu.classList.toggle("open-downwards", !openUpwards);
     }
 
     function resetSourceMenuPosition() {
         if (!dom.sourceMenu) return;
-        dom.sourceMenu.classList.remove("floating", "open-upwards", "open-downwards");
+        dom.sourceMenu.classList.remove("open-upwards", "open-downwards");
         dom.sourceMenu.style.top = "";
         dom.sourceMenu.style.left = "";
+        dom.sourceMenu.style.bottom = "";
         dom.sourceMenu.style.minWidth = "";
         dom.sourceMenu.style.maxWidth = "";
         dom.sourceMenu.style.width = "";
@@ -2238,11 +2230,10 @@
         if (!dom.sourceMenu || !dom.sourceSelectButton) return;
         state.sourceMenuOpen = true;
         buildSourceMenu();
-        dom.sourceMenu.classList.add("floating");
-        updateSourceMenuPosition();
         dom.sourceMenu.classList.add("show");
         dom.sourceSelectButton.classList.add("active");
         dom.sourceSelectButton.setAttribute("aria-expanded", "true");
+        updateSourceMenuPosition();
         requestAnimationFrame(updateSourceMenuPosition);
     }
 
@@ -2622,7 +2613,7 @@
                 const picUrl = API.getPicUrl(song);
                 
                 // 修复：直接使用JSONP请求获取封面数据
-                const data = await API.jsonpRequest(picUrl);
+                const data = await API.fetchJson(picUrl);
                 
                 if (data && data.url) {
                     // 预加载图片以确保加载成功
@@ -3121,19 +3112,24 @@
             const audioUrl = API.getSongUrl(song, quality);
             debugLog(`获取音频URL: ${audioUrl}`);
 
-            const audioData = await API.jsonpRequest(audioUrl);
+            const audioData = await API.fetchJson(audioUrl);
 
             if (!audioData || !audioData.url) {
                 throw new Error('无法获取音频播放地址');
             }
 
             const originalAudioUrl = audioData.url;
+            const proxiedAudioUrl = buildAudioProxyUrl(originalAudioUrl);
             const preferredAudioUrl = preferHttpsUrl(originalAudioUrl);
             const candidateAudioUrls = Array.from(
-                new Set([preferredAudioUrl, originalAudioUrl].filter(Boolean))
+                new Set([proxiedAudioUrl, preferredAudioUrl, originalAudioUrl].filter(Boolean))
             );
 
-            if (preferredAudioUrl && preferredAudioUrl !== originalAudioUrl) {
+            const primaryAudioUrl = candidateAudioUrls[0] || originalAudioUrl;
+
+            if (proxiedAudioUrl && proxiedAudioUrl !== originalAudioUrl) {
+                debugLog(`音频地址已通过代理转换为 HTTPS: ${proxiedAudioUrl}`);
+            } else if (preferredAudioUrl && preferredAudioUrl !== originalAudioUrl) {
                 debugLog(`音频地址由 HTTP 升级为 HTTPS: ${preferredAudioUrl}`);
             }
 
@@ -3164,18 +3160,14 @@
                 try {
                     await waitForAudioReady(dom.audioPlayer);
                     selectedAudioUrl = candidateUrl;
-                    usedFallbackAudio = (
-                        candidateUrl !== preferredAudioUrl &&
-                        candidateAudioUrls.length > 1 &&
-                        preferredAudioUrl !== originalAudioUrl
-                    );
+                    usedFallbackAudio = candidateUrl !== primaryAudioUrl && candidateAudioUrls.length > 1;
                     break;
                 } catch (error) {
                     lastAudioError = error;
                     console.warn('音频元数据加载异常', error);
 
-                    if (candidateUrl === preferredAudioUrl && candidateAudioUrls.length > 1) {
-                        debugLog('HTTPS 音频加载失败，尝试回退到原始地址');
+                    if (candidateUrl === primaryAudioUrl && candidateAudioUrls.length > 1) {
+                        debugLog('主音频地址加载失败，尝试使用备用地址');
                     }
                 }
             }
@@ -3185,8 +3177,8 @@
             }
 
             if (usedFallbackAudio) {
-                debugLog(`已回退至原始音频地址: ${selectedAudioUrl}`);
-                showNotification('HTTPS 音频加载失败，已切换到备用音源', 'warning');
+                debugLog(`已回退至备用音频地址: ${selectedAudioUrl}`);
+                showNotification('主音频加载失败，已切换到备用音源', 'warning');
             }
 
             state.currentAudioUrl = selectedAudioUrl;
@@ -3378,7 +3370,7 @@
             const lyricUrl = API.getLyric(song);
             debugLog(`获取歌词URL: ${lyricUrl}`);
             
-            const lyricData = await API.jsonpRequest(lyricUrl);
+            const lyricData = await API.fetchJson(lyricUrl);
             
             if (lyricData && lyricData.lyric) {
                 parseLyrics(lyricData.lyric);
@@ -3494,21 +3486,27 @@
             showNotification("正在准备下载...");
 
             const audioUrl = API.getSongUrl(song, quality);
-            const audioData = await API.jsonpRequest(audioUrl);
+            const audioData = await API.fetchJson(audioUrl);
 
             if (audioData && audioData.url) {
+                const proxiedAudioUrl = buildAudioProxyUrl(audioData.url);
                 const preferredAudioUrl = preferHttpsUrl(audioData.url);
-                if (preferredAudioUrl !== audioData.url) {
+
+                if (proxiedAudioUrl !== audioData.url) {
+                    debugLog(`下载链接已通过代理转换为 HTTPS: ${proxiedAudioUrl}`);
+                } else if (preferredAudioUrl !== audioData.url) {
                     debugLog(`下载链接由 HTTP 升级为 HTTPS: ${preferredAudioUrl}`);
                 }
 
+                const downloadUrl = proxiedAudioUrl || preferredAudioUrl || audioData.url;
+
                 const link = document.createElement("a");
-                link.href = preferredAudioUrl;
+                link.href = downloadUrl;
                 const preferredExtension =
                     quality === "999" ? "flac" : quality === "740" ? "ape" : "mp3";
                 const fileExtension = (() => {
                     try {
-                        const url = new URL(preferredAudioUrl);
+                        const url = new URL(audioData.url);
                         const pathname = url.pathname || "";
                         const match = pathname.match(/\.([a-z0-9]+)$/i);
                         if (match) {

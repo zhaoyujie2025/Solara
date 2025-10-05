@@ -1014,12 +1014,35 @@
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             z-index: 100000;
+            pointer-events: none;
         }
 
         .player-quality-menu.show {
             opacity: 1;
             visibility: visible;
             transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .player-quality-menu.floating {
+            position: fixed;
+            right: auto;
+            left: 0;
+            top: 0;
+            will-change: opacity, transform;
+        }
+
+        .player-quality-menu.floating:not(.show) {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .player-quality-menu.open-upwards {
+            transform-origin: bottom center;
+        }
+
+        .player-quality-menu.open-downwards {
+            transform-origin: top center;
         }
 
         .player-quality-option {
@@ -1950,6 +1973,9 @@
         if (state.sourceMenuOpen) {
             requestAnimationFrame(updateSourceMenuPosition);
         }
+        if (state.qualityMenuOpen) {
+            requestAnimationFrame(updatePlayerQualityMenuPosition);
+        }
     }
 
     // 新增：隐藏搜索结果 - 优化立即收起
@@ -1957,6 +1983,9 @@
         toggleSearchMode(false);
         if (state.sourceMenuOpen) {
             requestAnimationFrame(updateSourceMenuPosition);
+        }
+        if (state.qualityMenuOpen) {
+            requestAnimationFrame(updatePlayerQualityMenuPosition);
         }
         // 立即清空搜索结果内容
         dom.searchResults.innerHTML = "";
@@ -2320,6 +2349,9 @@
             `;
         }).join("");
         dom.playerQualityMenu.innerHTML = optionsHtml;
+        if (state.qualityMenuOpen) {
+            requestAnimationFrame(updatePlayerQualityMenuPosition);
+        }
     }
 
     function updateQualityLabel() {
@@ -2339,16 +2371,77 @@
         }
     }
 
+    function updatePlayerQualityMenuPosition() {
+        if (!state.qualityMenuOpen || !dom.playerQualityMenu || !dom.qualityToggle) return;
+
+        const menu = dom.playerQualityMenu;
+        const toggleRect = dom.qualityToggle.getBoundingClientRect();
+        const viewportWidth = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
+        const viewportHeight = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
+        const spacing = 10;
+
+        menu.classList.add("floating");
+
+        const targetWidth = Math.max(Math.round(toggleRect.width), 180);
+        menu.style.minWidth = `${targetWidth}px`;
+        menu.style.maxWidth = `${targetWidth}px`;
+        menu.style.width = `${targetWidth}px`;
+        menu.style.right = "auto";
+
+        const menuRect = menu.getBoundingClientRect();
+        const menuHeight = Math.round(menuRect.height);
+        const menuWidth = Math.round(menuRect.width) || targetWidth;
+
+        let top = Math.round(toggleRect.bottom + spacing);
+        let openUpwards = false;
+        if (top + menuHeight > viewportHeight - spacing) {
+            const upwardTop = Math.round(toggleRect.top - spacing - menuHeight);
+            if (upwardTop >= spacing) {
+                top = upwardTop;
+                openUpwards = true;
+            } else {
+                top = Math.max(spacing, viewportHeight - spacing - menuHeight);
+            }
+        }
+
+        let left = Math.round(toggleRect.right - menuWidth);
+        const minLeft = spacing;
+        const maxLeft = Math.max(minLeft, viewportWidth - spacing - menuWidth);
+        left = Math.min(Math.max(left, minLeft), maxLeft);
+
+        menu.style.top = `${top}px`;
+        menu.style.left = `${left}px`;
+        menu.classList.toggle("open-upwards", openUpwards);
+        menu.classList.toggle("open-downwards", !openUpwards);
+    }
+
+    function resetPlayerQualityMenuPosition() {
+        if (!dom.playerQualityMenu) return;
+        dom.playerQualityMenu.classList.remove("floating", "open-upwards", "open-downwards");
+        dom.playerQualityMenu.style.top = "";
+        dom.playerQualityMenu.style.left = "";
+        dom.playerQualityMenu.style.right = "";
+        dom.playerQualityMenu.style.minWidth = "";
+        dom.playerQualityMenu.style.maxWidth = "";
+        dom.playerQualityMenu.style.width = "";
+    }
+
     function openPlayerQualityMenu() {
+        if (!dom.playerQualityMenu || !dom.qualityToggle) return;
+        state.qualityMenuOpen = true;
+        dom.playerQualityMenu.classList.add("floating");
         dom.playerQualityMenu.classList.add("show");
         dom.qualityToggle.classList.add("active");
-        state.qualityMenuOpen = true;
+        updatePlayerQualityMenuPosition();
+        requestAnimationFrame(updatePlayerQualityMenuPosition);
     }
 
     function closePlayerQualityMenu() {
+        if (!dom.playerQualityMenu) return;
         dom.playerQualityMenu.classList.remove("show");
         dom.qualityToggle.classList.remove("active");
         state.qualityMenuOpen = false;
+        resetPlayerQualityMenuPosition();
     }
 
     function handlePlayerQualitySelection(event) {
@@ -2477,8 +2570,14 @@
             dom.sourceSelectButton.addEventListener("click", toggleSourceMenu);
             dom.sourceMenu.addEventListener("click", handleSourceSelection);
         }
-        window.addEventListener("resize", updateSourceMenuPosition);
-        window.addEventListener("scroll", updateSourceMenuPosition, true);
+        window.addEventListener("resize", () => {
+            updateSourceMenuPosition();
+            updatePlayerQualityMenuPosition();
+        });
+        window.addEventListener("scroll", () => {
+            updateSourceMenuPosition();
+            updatePlayerQualityMenuPosition();
+        }, true);
         dom.qualityToggle.addEventListener("click", togglePlayerQualityMenu);
         dom.playerQualityMenu.addEventListener("click", handlePlayerQualitySelection);
 

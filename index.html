@@ -264,6 +264,8 @@
             position: absolute;
             top: calc(100% + 10px);
             left: 0;
+            right: auto;
+            bottom: auto;
             background: rgba(255, 255, 255, 0.95);
             border-radius: 12px;
             box-shadow: 0 12px 30px rgba(0,0,0,0.18);
@@ -290,22 +292,15 @@
             pointer-events: auto;
         }
 
-        .source-menu.floating {
-            position: fixed;
-            transform: translateY(0);
-            will-change: opacity, transform;
-        }
-
-        .source-menu.floating:not(.show) {
-            opacity: 0;
-            visibility: hidden;
-        }
-
         .source-menu.open-upwards {
+            top: auto;
+            bottom: calc(100% + 10px);
             transform-origin: bottom center;
         }
 
         .source-menu.open-downwards {
+            top: calc(100% + 10px);
+            bottom: auto;
             transform-origin: top center;
         }
 
@@ -2219,64 +2214,42 @@
         if (!state.sourceMenuOpen || !dom.sourceMenu || !dom.sourceSelectButton) return;
 
         const menu = dom.sourceMenu;
-        const buttonRect = dom.sourceSelectButton.getBoundingClientRect();
-        const viewportHeight = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
-        const viewportWidth = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
+        const button = dom.sourceSelectButton;
         const spacing = 10;
+        const buttonWidth = Math.ceil(button.getBoundingClientRect().width);
+        const effectiveWidth = Math.max(buttonWidth, 140);
 
-        menu.classList.add("floating");
-        const buttonWidth = Math.round(buttonRect.width);
-        const effectiveWidth = Math.max(buttonWidth, 0);
-
+        menu.style.left = "0px";
         menu.style.width = `${effectiveWidth}px`;
         menu.style.minWidth = `${effectiveWidth}px`;
         menu.style.maxWidth = `${effectiveWidth}px`;
 
-        const menuRect = menu.getBoundingClientRect();
-        const menuHeight = menuRect.height;
-        const menuWidth = Math.round(menuRect.width || effectiveWidth);
+        const menuHeight = Math.max(menu.scrollHeight, 0);
+        const buttonRect = button.getBoundingClientRect();
+        const viewportHeight = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
+        const spaceBelow = Math.max(viewportHeight - buttonRect.bottom - spacing, 0);
+        const canOpenUpwards = buttonRect.top - spacing - menuHeight >= 0;
+        const shouldOpenUpwards = menuHeight > spaceBelow && canOpenUpwards;
 
-        let left = Math.round(buttonRect.left);
-
-        let top = Math.round(buttonRect.bottom + spacing);
-        let openUpwards = false;
-        if (top + menuHeight > viewportHeight - spacing) {
-            const upwardTop = Math.round(buttonRect.top - spacing - menuHeight);
-            if (upwardTop >= spacing) {
-                top = upwardTop;
-                openUpwards = true;
-            } else {
-                top = Math.max(spacing, viewportHeight - spacing - menuHeight);
-            }
+        if (shouldOpenUpwards) {
+            menu.classList.add("open-upwards");
+            menu.classList.remove("open-downwards");
+            menu.style.top = "";
+            menu.style.bottom = `${button.offsetHeight + spacing}px`;
+        } else {
+            menu.classList.add("open-downwards");
+            menu.classList.remove("open-upwards");
+            menu.style.bottom = "";
+            menu.style.top = `${button.offsetHeight + spacing}px`;
         }
-
-        const searchArea = dom.sourceSelectButton.closest(".search-area");
-        if (searchArea) {
-            const areaRect = searchArea.getBoundingClientRect();
-            const minAreaLeft = Math.round(areaRect.left + spacing);
-            const maxAreaLeft = Math.round(areaRect.right - spacing - menuWidth);
-            if (minAreaLeft <= maxAreaLeft) {
-                left = Math.min(Math.max(left, minAreaLeft), maxAreaLeft);
-            } else {
-                left = Math.max(left, Math.round(areaRect.left));
-            }
-        }
-
-        const minViewportLeft = spacing;
-        const maxViewportLeft = Math.max(minViewportLeft, Math.round(viewportWidth - spacing - menuWidth));
-        left = Math.min(Math.max(left, minViewportLeft), maxViewportLeft);
-
-        menu.style.left = `${left}px`;
-        menu.style.top = `${top}px`;
-        menu.classList.toggle("open-upwards", openUpwards);
-        menu.classList.toggle("open-downwards", !openUpwards);
     }
 
     function resetSourceMenuPosition() {
         if (!dom.sourceMenu) return;
-        dom.sourceMenu.classList.remove("floating", "open-upwards", "open-downwards");
+        dom.sourceMenu.classList.remove("open-upwards", "open-downwards");
         dom.sourceMenu.style.top = "";
         dom.sourceMenu.style.left = "";
+        dom.sourceMenu.style.bottom = "";
         dom.sourceMenu.style.minWidth = "";
         dom.sourceMenu.style.maxWidth = "";
         dom.sourceMenu.style.width = "";
@@ -2286,11 +2259,10 @@
         if (!dom.sourceMenu || !dom.sourceSelectButton) return;
         state.sourceMenuOpen = true;
         buildSourceMenu();
-        dom.sourceMenu.classList.add("floating");
-        updateSourceMenuPosition();
         dom.sourceMenu.classList.add("show");
         dom.sourceSelectButton.classList.add("active");
         dom.sourceSelectButton.setAttribute("aria-expanded", "true");
+        updateSourceMenuPosition();
         requestAnimationFrame(updateSourceMenuPosition);
     }
 

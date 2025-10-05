@@ -1342,6 +1342,10 @@
             background: var(--warning-color);
         }
 
+        .notification.warning {
+            background: #f39c12;
+        }
+
         /* 视图切换按钮 - 桌面端隐藏，移动端显示 */
         .view-toggle { 
             display: none;
@@ -1671,6 +1675,44 @@
         }
     }
 
+    function preferHttpsUrl(url) {
+        if (!url || typeof url !== "string") return url;
+
+        try {
+            const parsedUrl = new URL(url, window.location.href);
+            if (parsedUrl.protocol === "http:" && window.location.protocol === "https:") {
+                parsedUrl.protocol = "https:";
+                return parsedUrl.toString();
+            }
+            return parsedUrl.toString();
+        } catch (error) {
+            if (window.location.protocol === "https:" && url.startsWith("http://")) {
+                return "https://" + url.substring("http://".length);
+            }
+            return url;
+        }
+    }
+
+    function buildAudioProxyUrl(url) {
+        if (!url || typeof url !== "string") return url;
+
+        try {
+            const parsedUrl = new URL(url, window.location.href);
+            if (parsedUrl.protocol === "https:") {
+                return parsedUrl.toString();
+            }
+
+            if (parsedUrl.protocol === "http:" && /(^|\.)kuwo\.cn$/i.test(parsedUrl.hostname)) {
+                return `${API.baseUrl}?target=${encodeURIComponent(parsedUrl.toString())}`;
+            }
+
+            return parsedUrl.toString();
+        } catch (error) {
+            console.warn("无法解析音频地址，跳过代理", error);
+            return url;
+        }
+    }
+
     const SOURCE_OPTIONS = [
         { value: "netease", label: "网易云音乐" },
         { value: "kuwo", label: "酷我音乐" },
@@ -1748,47 +1790,46 @@
     // API配置 - 修复API地址和请求方式
     const API = {
         name: "GD Studio API",
-        baseUrl: "https://music-api.gdstudio.xyz/api.php",
-        
+        baseUrl: "/proxy",
+
         generateSignature: () => {
             return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         },
 
-        jsonpRequest: (url) => {
-            return new Promise((resolve, reject) => {
-                const callbackName = "jsonp_callback_" + Math.random().toString(36).substr(2, 9);
-                const timestamp = Date.now();
-                const script = document.createElement("script");
-                
-                window[callbackName] = function(data) {
-                    resolve(data);
-                    document.head.removeChild(script);
-                    delete window[callbackName];
-                };
-                
-                const separator = url.includes("?") ? "&" : "?";
-                const finalUrl = `${url}${separator}callback=${callbackName}&_=${timestamp}`;
-                
-                script.src = finalUrl;
-                script.onerror = () => {
-                    reject(new Error("JSONP request failed"));
-                    document.head.removeChild(script);
-                    delete window[callbackName];
-                };
-                
-                document.head.appendChild(script);
-            });
+        fetchJson: async (url) => {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        "Accept": "application/json",
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Request failed with status ${response.status}`);
+                }
+
+                const text = await response.text();
+                try {
+                    return JSON.parse(text);
+                } catch (parseError) {
+                    console.warn("JSON parse failed, returning raw text", parseError);
+                    return text;
+                }
+            } catch (error) {
+                console.error("API request error:", error);
+                throw error;
+            }
         },
 
         search: async (keyword, source = "netease", count = 20, page = 1) => {
             const signature = API.generateSignature();
             const url = `${API.baseUrl}?types=search&source=${source}&name=${encodeURIComponent(keyword)}&count=${count}&pages=${page}&s=${signature}`;
-            
+
             try {
                 debugLog(`API请求: ${url}`);
-                const data = await API.jsonpRequest(url);
+                const data = await API.fetchJson(url);
                 debugLog(`API响应: ${JSON.stringify(data).substring(0, 200)}...`);
-                
+
                 if (!Array.isArray(data)) throw new Error("搜索结果格式错误");
                 
                 return data.map(song => ({
@@ -1811,9 +1852,9 @@
             const source = "netease,kuwo";
             const signature = API.generateSignature();
             const url = `${API.baseUrl}?types=search&source=${source}&name=${encodeURIComponent(keyword)}&count=${count}&pages=${pages}&s=${signature}`;
-            
+
             try {
-                const data = await API.jsonpRequest(url);
+                const data = await API.fetchJson(url);
                 if (!Array.isArray(data) || data.length === 0) throw new Error("No songs found");
                 return data.map(song => ({
                     id: song.id,
@@ -2699,7 +2740,7 @@
                 const picUrl = API.getPicUrl(song);
                 
                 // 修复：直接使用JSONP请求获取封面数据
-                const data = await API.jsonpRequest(picUrl);
+                const data = await API.fetchJson(picUrl);
                 
                 if (data && data.url) {
                     // 预加载图片以确保加载成功
@@ -3198,18 +3239,31 @@
             const audioUrl = API.getSongUrl(song, quality);
             debugLog(`获取音频URL: ${audioUrl}`);
 
-            const audioData = await API.jsonpRequest(audioUrl);
+            const audioData = await API.fetchJson(audioUrl);
 
             if (!audioData || !audioData.url) {
                 throw new Error('无法获取音频播放地址');
             }
 
-            state.currentAudioUrl = audioData.url;
+            const originalAudioUrl = audioData.url;
+            const proxiedAudioUrl = buildAudioProxyUrl(originalAudioUrl);
+            const preferredAudioUrl = preferHttpsUrl(originalAudioUrl);
+            const candidateAudioUrls = Array.from(
+                new Set([proxiedAudioUrl, preferredAudioUrl, originalAudioUrl].filter(Boolean))
+            );
+
+            const primaryAudioUrl = candidateAudioUrls[0] || originalAudioUrl;
+
+            if (proxiedAudioUrl && proxiedAudioUrl !== originalAudioUrl) {
+                debugLog(`音频地址已通过代理转换为 HTTPS: ${proxiedAudioUrl}`);
+            } else if (preferredAudioUrl && preferredAudioUrl !== originalAudioUrl) {
+                debugLog(`音频地址由 HTTP 升级为 HTTPS: ${preferredAudioUrl}`);
+            }
+
             state.currentSong = song;
+            state.currentAudioUrl = null;
 
             dom.audioPlayer.pause();
-            dom.audioPlayer.src = audioData.url;
-            dom.audioPlayer.load();
 
             if (!preserveProgress) {
                 state.currentPlaybackTime = 0;
@@ -3222,18 +3276,46 @@
 
             state.pendingSeekTime = startTime > 0 ? startTime : null;
 
-            try {
-                await waitForAudioReady(dom.audioPlayer);
-            } catch (error) {
-                console.warn('音频元数据加载异常', error);
+            let selectedAudioUrl = null;
+            let lastAudioError = null;
+            let usedFallbackAudio = false;
+
+            for (const candidateUrl of candidateAudioUrls) {
+                dom.audioPlayer.src = candidateUrl;
+                dom.audioPlayer.load();
+
+                try {
+                    await waitForAudioReady(dom.audioPlayer);
+                    selectedAudioUrl = candidateUrl;
+                    usedFallbackAudio = candidateUrl !== primaryAudioUrl && candidateAudioUrls.length > 1;
+                    break;
+                } catch (error) {
+                    lastAudioError = error;
+                    console.warn('音频元数据加载异常', error);
+
+                    if (candidateUrl === primaryAudioUrl && candidateAudioUrls.length > 1) {
+                        debugLog('主音频地址加载失败，尝试使用备用地址');
+                    }
+                }
             }
 
-           if (state.pendingSeekTime != null) {
-               setAudioCurrentTime(state.pendingSeekTime);
-               state.pendingSeekTime = null;
-           } else {
-               setAudioCurrentTime(dom.audioPlayer.currentTime || 0);
-           }
+            if (!selectedAudioUrl) {
+                throw lastAudioError || new Error('音频加载失败');
+            }
+
+            if (usedFallbackAudio) {
+                debugLog(`已回退至备用音频地址: ${selectedAudioUrl}`);
+                showNotification('主音频加载失败，已切换到备用音源', 'warning');
+            }
+
+            state.currentAudioUrl = selectedAudioUrl;
+
+            if (state.pendingSeekTime != null) {
+                setAudioCurrentTime(state.pendingSeekTime);
+                state.pendingSeekTime = null;
+            } else {
+                setAudioCurrentTime(dom.audioPlayer.currentTime || 0);
+            }
 
             state.lastSavedPlaybackTime = state.currentPlaybackTime;
 
@@ -3415,7 +3497,7 @@
             const lyricUrl = API.getLyric(song);
             debugLog(`获取歌词URL: ${lyricUrl}`);
             
-            const lyricData = await API.jsonpRequest(lyricUrl);
+            const lyricData = await API.fetchJson(lyricUrl);
             
             if (lyricData && lyricData.lyric) {
                 parseLyrics(lyricData.lyric);
@@ -3531,11 +3613,22 @@
             showNotification("正在准备下载...");
 
             const audioUrl = API.getSongUrl(song, quality);
-            const audioData = await API.jsonpRequest(audioUrl);
+            const audioData = await API.fetchJson(audioUrl);
 
             if (audioData && audioData.url) {
+                const proxiedAudioUrl = buildAudioProxyUrl(audioData.url);
+                const preferredAudioUrl = preferHttpsUrl(audioData.url);
+
+                if (proxiedAudioUrl !== audioData.url) {
+                    debugLog(`下载链接已通过代理转换为 HTTPS: ${proxiedAudioUrl}`);
+                } else if (preferredAudioUrl !== audioData.url) {
+                    debugLog(`下载链接由 HTTP 升级为 HTTPS: ${preferredAudioUrl}`);
+                }
+
+                const downloadUrl = proxiedAudioUrl || preferredAudioUrl || audioData.url;
+
                 const link = document.createElement("a");
-                link.href = audioData.url;
+                link.href = downloadUrl;
                 const preferredExtension =
                     quality === "999" ? "flac" : quality === "740" ? "ape" : "mp3";
                 const fileExtension = (() => {

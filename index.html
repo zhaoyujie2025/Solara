@@ -1100,70 +1100,75 @@
             100% { transform: rotate(360deg); } 
         }
         
-        .theme-switch-wrapper { 
-            position: absolute; 
-            top: 0px; 
-            right: 0px; 
-        }
-        .theme-switch { 
-            display: inline-block; 
-            height: 24px; 
-            position: relative; 
-            width: 48px; 
-        }
-        .theme-switch input { 
-            display:none; 
-        }
-        .slider { 
-            background-color: #ccc; 
-            bottom: 0; 
-            cursor: pointer; 
-            left: 0; 
-            position: absolute; 
-            right: 0; 
-            top: 0; 
-            transition: .4s; 
-            border-radius: 24px; 
-        }
-        .slider:before { 
-            background-color: #fff; 
-            bottom: 3px; 
-            content: ""; 
-            height: 18px; 
-            left: 3px; 
-            position: absolute; 
-            transition: .4s; 
-            width: 18px; 
-            border-radius: 50%; 
-        }
-        .slider .fa-sun, .slider .fa-moon {
+        .theme-switch-wrapper {
             position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 14px;
+            top: 0px;
+            right: 0px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .theme-toggle-button {
+            width: 44px;
+            height: 44px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.4));
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            color: var(--primary-color);
+        }
+
+        .theme-toggle-button:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.25);
+        }
+
+        .theme-toggle-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 26px rgba(0, 0, 0, 0.16);
+        }
+
+        .theme-toggle-button.is-dark {
+            background: linear-gradient(160deg, rgba(36, 42, 54, 0.9), rgba(24, 30, 42, 0.7));
+            border-color: rgba(93, 173, 226, 0.5);
+        }
+
+        .theme-toggle-button .theme-icon {
+            position: absolute;
+            font-size: 18px;
+            transition: opacity 0.35s ease, transform 0.45s ease;
             opacity: 0;
-            transition: opacity 0.4s;
+            transform: scale(0.6) rotate(-20deg);
         }
-        .slider .fa-sun {
-            left: 6px;
+
+        .theme-toggle-button .theme-icon--sun {
+            color: #f5a623;
+            text-shadow: 0 0 10px rgba(245, 166, 35, 0.4);
+        }
+
+        .theme-toggle-button .theme-icon--moon {
+            color: #a29bfe;
+            text-shadow: 0 0 10px rgba(162, 155, 254, 0.4);
+            transform: scale(0.6) rotate(20deg);
+        }
+
+        .theme-toggle-button:not(.is-dark) .theme-icon--sun {
             opacity: 1;
-            color: #f39c12;
+            transform: scale(1) rotate(0deg);
         }
-        .slider .fa-moon {
-            right: 6px;
-            color: #f5f6fa;
-        }
-        input:checked + .slider { 
-            background-color: var(--primary-color); 
-        }
-        input:checked + .slider:before { 
-            transform: translateX(24px); 
-        }
-        input:checked + .slider .fa-sun { 
-            opacity: 0; 
-        }
-        input:checked + .slider .fa-moon { 
-            opacity: 1; 
+
+        .theme-toggle-button.is-dark .theme-icon--moon {
+            opacity: 1;
+            transform: scale(1) rotate(0deg);
         }
 
         /* 通知样式 */
@@ -1355,13 +1360,10 @@
         <h1>音乐播放器</h1>
         <div class="warning">仅供学习交流使用，请支持正版音乐奥。</div>
         <div class="theme-switch-wrapper">
-            <label class="theme-switch" for="checkbox">
-                <input type="checkbox" id="checkbox" />
-                <div class="slider">
-                    <i class="fas fa-sun"></i>
-                    <i class="fas fa-moon"></i>
-                </div>
-            </label>
+            <button id="themeToggleButton" class="theme-toggle-button" type="button" aria-label="切换深浅色模式">
+                <i class="fas fa-sun theme-icon theme-icon--sun" aria-hidden="true"></i>
+                <i class="fas fa-moon theme-icon theme-icon--moon" aria-hidden="true"></i>
+            </button>
         </div>
     </div>
 
@@ -1461,7 +1463,7 @@
         playlistItems: document.getElementById("playlistItems"),
         lyrics: document.getElementById("lyrics"),
         audioPlayer: document.getElementById("audioPlayer"),
-        themeToggle: document.getElementById("checkbox"),
+        themeToggleButton: document.getElementById("themeToggleButton"),
         loadOnlineBtn: document.getElementById("loadOnlineBtn"),
         showPlaylistBtn: document.getElementById("showPlaylistBtn"),
         showLyricsBtn: document.getElementById("showLyricsBtn"),
@@ -2081,14 +2083,22 @@
     dom.audioPlayer.addEventListener("ended", autoPlayNext);
 
     function setupInteractions() {
-        const savedTheme = safeGetLocalStorage("theme");
-        if (savedTheme) {
-            document.body.classList.toggle("dark-mode", savedTheme === "dark");
-            dom.themeToggle.checked = savedTheme === "dark";
-        }
-        dom.themeToggle.addEventListener("change", (e) => {
-            const isDark = e.target.checked;
+        function applyTheme(isDark) {
             document.body.classList.toggle("dark-mode", isDark);
+            dom.themeToggleButton.classList.toggle("is-dark", isDark);
+            const label = isDark ? "切换为浅色模式" : "切换为深色模式";
+            dom.themeToggleButton.setAttribute("aria-label", label);
+            dom.themeToggleButton.setAttribute("title", label);
+        }
+
+        const savedTheme = safeGetLocalStorage("theme");
+        const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const initialIsDark = savedTheme ? savedTheme === "dark" : prefersDark;
+        applyTheme(initialIsDark);
+
+        dom.themeToggleButton.addEventListener("click", () => {
+            const isDark = !document.body.classList.contains("dark-mode");
+            applyTheme(isDark);
             safeSetLocalStorage("theme", isDark ? "dark" : "light");
         });
 

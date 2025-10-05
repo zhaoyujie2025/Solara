@@ -2149,50 +2149,39 @@
         const spacing = 12;
 
         menu.classList.add("floating");
-        menu.style.width = "auto";
-        menu.style.minWidth = "";
-        menu.style.maxWidth = "";
 
         const maxAvailableWidth = Math.max(0, viewportWidth - spacing * 2);
         const naturalWidth = menu.scrollWidth;
 
-        const effectiveMaxWidth = maxAvailableWidth > 0
-            ? Math.min(maxAvailableWidth, 320)
-            : 320;
-
-        const baseWidth = Math.min(
-            Math.max(buttonRect.width, 160),
-            maxAvailableWidth > 0 ? maxAvailableWidth : Math.max(buttonRect.width, 160)
+        const desiredMinWidth = Math.max(buttonRect.width, 180);
+        const desiredMaxWidth = Math.max(
+            desiredMinWidth,
+            maxAvailableWidth > 0 ? Math.min(maxAvailableWidth, 280) : desiredMinWidth
         );
 
-        const targetWidth = Math.max(
-            baseWidth,
-            Math.min(naturalWidth, effectiveMaxWidth)
+        const targetWidth = Math.min(
+            Math.max(desiredMinWidth, naturalWidth),
+            desiredMaxWidth
         );
 
         menu.style.width = `${targetWidth}px`;
-        menu.style.minWidth = `${baseWidth}px`;
-        menu.style.maxWidth = `${maxAvailableWidth > 0 ? effectiveMaxWidth : targetWidth}px`;
+        menu.style.minWidth = `${desiredMinWidth}px`;
+        menu.style.maxWidth = `${desiredMaxWidth}px`;
 
         const menuRect = menu.getBoundingClientRect();
         const menuWidth = menuRect.width;
         const menuHeight = menuRect.height;
 
-        const buttonCenter = buttonRect.left + buttonRect.width / 2;
         const minLeft = spacing;
         const maxLeft = viewportWidth - spacing - menuWidth;
 
-        let left = buttonCenter - menuWidth / 2;
+        let left = buttonRect.left;
 
-        if (maxLeft >= minLeft) {
-            if (left < minLeft) {
-                left = Math.max(minLeft, Math.min(buttonRect.left, maxLeft));
-            }
-            if (left > maxLeft) {
-                left = Math.min(maxLeft, Math.max(buttonRect.right - menuWidth, minLeft));
-            }
-        } else {
-            left = Math.max(minLeft, buttonRect.left);
+        if (left + menuWidth > viewportWidth - spacing) {
+            left = Math.max(spacing, viewportWidth - spacing - menuWidth);
+        }
+        if (left < spacing) {
+            left = spacing;
         }
 
         let top = buttonRect.bottom + spacing;

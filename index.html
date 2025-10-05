@@ -854,13 +854,15 @@
         .player-quality-btn {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 10px 18px;
-            border-radius: 12px;
+            justify-content: center;
+            gap: 0;
+            padding: 10px 16px;
+            border-radius: 8px;
             border: 1px solid var(--border-color);
             background: var(--component-bg);
             color: var(--text-color);
             font-size: 0.9em;
+            font-weight: 500;
             cursor: pointer;
             transition: all 0.2s ease;
         }
@@ -1429,9 +1431,7 @@
         <div class="audio-tools">
             <div class="player-quality">
                 <button id="qualityToggle" class="player-quality-btn" type="button">
-                    <i class="fas fa-waveform-lines"></i>
-                    <span id="qualityLabel">320 kbps</span>
-                    <i class="fas fa-chevron-down"></i>
+                    <span id="qualityLabel">极高音质</span>
                 </button>
                 <div id="playerQualityMenu" class="player-quality-menu"></div>
             </div>
@@ -1517,10 +1517,10 @@
     }
 
     const QUALITY_OPTIONS = [
-        { value: "128", label: "标准", description: "128 kbps" },
-        { value: "192", label: "高品", description: "192 kbps" },
-        { value: "320", label: "极高", description: "320 kbps" },
-        { value: "999", label: "无损", description: "FLAC" }
+        { value: "128", label: "标准音质", description: "128 kbps" },
+        { value: "192", label: "高品音质", description: "192 kbps" },
+        { value: "320", label: "极高音质", description: "320 kbps" },
+        { value: "999", label: "无损音质", description: "FLAC" }
     ];
 
     function normalizeQuality(value) {
@@ -1980,7 +1980,7 @@
     function updateQualityLabel() {
         const option = QUALITY_OPTIONS.find(item => item.value === state.playbackQuality) || QUALITY_OPTIONS[0];
         if (!option) return;
-        dom.qualityLabel.textContent = option.description;
+        dom.qualityLabel.textContent = option.label;
         dom.qualityToggle.title = `音质: ${option.label} (${option.description})`;
     }
 

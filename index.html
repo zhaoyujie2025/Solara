@@ -108,7 +108,7 @@
             height: 80vh;
             max-height: 700px;
             display: grid;
-            grid-template-areas: 
+            grid-template-areas:
                 "header header header"
                 "search search search"
                 "cover playlist lyrics"
@@ -117,7 +117,7 @@
             grid-template-columns: 300px 1fr 1fr;
             gap: 20px;
             transition: background 0.5s, box-shadow 0.5s;
-            overflow: hidden;
+            overflow: visible;
             position: relative;
         }
 
@@ -856,7 +856,7 @@
             align-items: center;
             gap: 8px;
             padding: 10px 18px;
-            border-radius: 24px;
+            border-radius: 12px;
             border: 1px solid var(--border-color);
             background: var(--component-bg);
             color: var(--text-color);
@@ -1136,21 +1136,22 @@
             width: 18px; 
             border-radius: 50%; 
         }
-        .slider .fa-sun, .slider .fa-moon { 
-            position: absolute; 
-            top: 50%; 
-            transform: translateY(-50%); 
-            color: #fff; 
-            font-size: 12px; 
-            opacity: 0; 
-            transition: opacity 0.4s; 
+        .slider .fa-sun, .slider .fa-moon {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.4s;
         }
-        .slider .fa-sun { 
-            left: 6px; 
-            opacity: 1; 
+        .slider .fa-sun {
+            left: 6px;
+            opacity: 1;
+            color: #f39c12;
         }
-        .slider .fa-moon { 
-            right: 6px; 
+        .slider .fa-moon {
+            right: 6px;
+            color: #f5f6fa;
         }
         input:checked + .slider { 
             background-color: var(--primary-color); 

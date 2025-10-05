@@ -2015,11 +2015,24 @@
         }
 
         const response = await fetch(`/palette?image=${encodeURIComponent(imageUrl)}`);
-        if (!response.ok) {
-            throw new Error(`Palette request failed: ${response.status}`);
+        const raw = await response.text();
+        let payload = null;
+        try {
+            payload = raw ? JSON.parse(raw) : null;
+        } catch (parseError) {
+            console.warn("解析调色板响应失败:", parseError);
         }
 
-        const data = await response.json();
+        if (!response.ok) {
+            const detail = payload && payload.error ? ` (${payload.error})` : "";
+            throw new Error(`Palette request failed: ${response.status}${detail}`);
+        }
+
+        if (payload === null) {
+            throw new Error("Palette response missing body");
+        }
+
+        const data = payload;
         paletteCache.set(imageUrl, data);
         return data;
     }

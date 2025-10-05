@@ -1,5 +1,22 @@
+import decodeJpeg from "./lib/vendor/jpeg-decoder.js";
+
 const MAX_DIMENSION = 120;
 const TARGET_SAMPLE_COUNT = 4000;
+
+type SupportedFormat = "jpeg" | "jpg" | "pjpeg";
+
+interface DecodedImage {
+  width: number;
+  height: number;
+  data: Uint8ClampedArray;
+}
+
+class UnsupportedImageFormatError extends Error {
+  constructor(format: string) {
+    super(`Unsupported image format: ${format}`);
+    this.name = "UnsupportedImageFormatError";
+  }
+}
 
 interface PaletteStop {
   gradient: string;
@@ -146,8 +163,8 @@ function adjustLightness(base: number, offset: number, factor = 1): number {
   return clamp(base * factor + offset, 0, 1);
 }
 
-function analyzeImageColors(imageData: ImageData): AnalyzedColors {
-  const { data } = imageData;
+function analyzeImageColors(image: DecodedImage): AnalyzedColors {
+  const { data } = image;
   const totalPixels = data.length / 4;
   const step = Math.max(1, Math.floor(totalPixels / TARGET_SAMPLE_COUNT));
 
@@ -238,30 +255,62 @@ function buildThemeTokens(accent: HslColor): Record<"light" | "dark", ThemeToken
   };
 }
 
-async function decodeImage(arrayBuffer: ArrayBuffer, contentType: string): Promise<ImageData> {
-  const blob = new Blob([arrayBuffer], { type: contentType });
-  const bitmap = await createImageBitmap(blob);
-
-  try {
-    const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
-    const width = Math.max(1, Math.round(bitmap.width * scale));
-    const height = Math.max(1, Math.round(bitmap.height * scale));
-
-    const canvas = new OffscreenCanvas(width, height);
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    if (!context) {
-      throw new Error("Unable to create canvas context");
-    }
-
-    context.drawImage(bitmap, 0, 0, width, height);
-    return context.getImageData(0, 0, width, height);
-  } finally {
-    bitmap.close();
+function resizeImage(image: DecodedImage): DecodedImage {
+  const maxSide = Math.max(image.width, image.height);
+  if (maxSide <= MAX_DIMENSION) {
+    return image;
   }
+
+  const scale = MAX_DIMENSION / maxSide;
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const resized = new Uint8ClampedArray(width * height * 4);
+
+  for (let y = 0; y < height; y += 1) {
+    const srcY = Math.min(image.height - 1, Math.floor(y / scale));
+    for (let x = 0; x < width; x += 1) {
+      const srcX = Math.min(image.width - 1, Math.floor(x / scale));
+      const srcIndex = (srcY * image.width + srcX) * 4;
+      const destIndex = (y * width + x) * 4;
+
+      resized[destIndex] = image.data[srcIndex];
+      resized[destIndex + 1] = image.data[srcIndex + 1];
+      resized[destIndex + 2] = image.data[srcIndex + 2];
+      resized[destIndex + 3] = image.data[srcIndex + 3];
+    }
+  }
+
+  return {
+    width,
+    height,
+    data: resized,
+  };
+}
+
+function decodeImage(arrayBuffer: ArrayBuffer, contentType: string): DecodedImage {
+  const subtype = contentType.split("/")[1]?.split(";")[0]?.toLowerCase() ?? "";
+  const supported: SupportedFormat[] = ["jpeg", "jpg", "pjpeg"];
+  if (!supported.includes(subtype as SupportedFormat)) {
+    throw new UnsupportedImageFormatError(subtype);
+  }
+
+  const bytes = new Uint8Array(arrayBuffer);
+  const decoded = decodeJpeg(bytes, {
+    useTArray: true,
+    formatAsRGBA: true,
+  });
+
+  const image: DecodedImage = {
+    width: decoded.width,
+    height: decoded.height,
+    data: new Uint8ClampedArray(decoded.data),
+  };
+
+  return resizeImage(image);
 }
 
 async function buildPalette(arrayBuffer: ArrayBuffer, contentType: string): Promise<PaletteResponse> {
-  const imageData = await decodeImage(arrayBuffer, contentType);
+  const imageData = decodeImage(arrayBuffer, contentType);
   const analyzed = analyzeImageColors(imageData);
   const gradientStops = buildGradientStops(analyzed.accent);
   const tokens = buildThemeTokens(analyzed.accent);
@@ -373,6 +422,12 @@ export async function onRequest({ request }: { request: Request }): Promise<Resp
       headers: createJsonHeaders(200),
     });
   } catch (error) {
+    if (error instanceof UnsupportedImageFormatError) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 415,
+        headers: createJsonHeaders(415),
+      });
+    }
     console.error("Palette generation failed", error);
     return new Response(JSON.stringify({ error: "Failed to analyze image" }), {
       status: 500,
@@ -380,3 +435,4 @@ export async function onRequest({ request }: { request: Request }): Promise<Resp
     });
   }
 }
+

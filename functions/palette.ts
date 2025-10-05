@@ -219,15 +219,15 @@ function analyzeImageColors(image: DecodedImage): AnalyzedColors {
 
 function buildGradientStops(accent: HslColor): { light: PaletteStop; dark: PaletteStop } {
   const lightColors = [
-    hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.65, 0.15), l: adjustLightness(accent.l, 0.32) }),
-    hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.9), l: adjustLightness(accent.l, 0.12) }),
-    hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 1.05), l: adjustLightness(accent.l, -0.05) }),
+    hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.4, 0.08), l: adjustLightness(accent.l, 0.42, 0.52) }),
+    hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.52, 0.05), l: adjustLightness(accent.l, 0.26, 0.62) }),
+    hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.65), l: adjustLightness(accent.l, 0.12, 0.72) }),
   ];
 
   const darkColors = [
-    hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.75), l: adjustLightness(accent.l, 0, 0.45) }),
-    hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.85), l: adjustLightness(accent.l, 0.08, 0.32) }),
-    hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 1), l: adjustLightness(accent.l, 0.04, 0.18) }),
+    hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.55, 0.04), l: adjustLightness(accent.l, 0.14, 0.38) }),
+    hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.62, 0.02), l: adjustLightness(accent.l, 0.04, 0.3) }),
+    hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.72), l: adjustLightness(accent.l, -0.04, 0.22) }),
   ];
 
   return {
@@ -245,12 +245,12 @@ function buildGradientStops(accent: HslColor): { light: PaletteStop; dark: Palet
 function buildThemeTokens(accent: HslColor): Record<"light" | "dark", ThemeTokens> {
   return {
     light: {
-      primaryColor: hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.92, 0.04), l: adjustLightness(accent.l, 0.1) }),
-      primaryColorDark: hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 1.05), l: adjustLightness(accent.l, -0.06) }),
+      primaryColor: hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.6, 0.06), l: adjustLightness(accent.l, 0.22, 0.6) }),
+      primaryColorDark: hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.72, 0.02), l: adjustLightness(accent.l, 0.06, 0.52) }),
     },
     dark: {
-      primaryColor: hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.85), l: adjustLightness(accent.l, 0.1, 0.55) }),
-      primaryColorDark: hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.9), l: adjustLightness(accent.l, 0.05, 0.38) }),
+      primaryColor: hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.58, 0.04), l: adjustLightness(accent.l, 0.16, 0.42) }),
+      primaryColorDark: hslToHex({ h: accent.h, s: adjustSaturation(accent.s, 0.68), l: adjustLightness(accent.l, 0.02, 0.32) }),
     },
   };
 }

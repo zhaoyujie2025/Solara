@@ -851,7 +851,7 @@
             position: relative;
         }
 
-        .player-quality-btn {
+        .controls .player-quality-btn {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -865,13 +865,17 @@
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s ease;
+            width: auto;
+            height: auto;
+            box-shadow: none;
         }
 
-        .player-quality-btn:hover,
-        .player-quality-btn.active {
+        .controls .player-quality-btn:hover,
+        .controls .player-quality-btn.active {
             border-color: var(--primary-color);
             color: var(--primary-color);
             box-shadow: 0 6px 16px rgba(52, 152, 219, 0.25);
+            background: var(--component-bg);
         }
 
         .player-quality-menu {

@@ -2144,50 +2144,26 @@
 
         const menu = dom.sourceMenu;
         const buttonRect = dom.sourceSelectButton.getBoundingClientRect();
-        const viewportWidth = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
         const viewportHeight = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
-        const spacing = 12;
+        const spacing = 10;
 
         menu.classList.add("floating");
+        const buttonWidth = Math.round(buttonRect.width);
+        const effectiveWidth = Math.max(buttonWidth, 0);
 
-        const maxAvailableWidth = Math.max(0, viewportWidth - spacing * 2);
-        const naturalWidth = menu.scrollWidth;
-
-        const desiredMinWidth = Math.max(buttonRect.width, 180);
-        const desiredMaxWidth = Math.max(
-            desiredMinWidth,
-            maxAvailableWidth > 0 ? Math.min(maxAvailableWidth, 280) : desiredMinWidth
-        );
-
-        const targetWidth = Math.min(
-            Math.max(desiredMinWidth, naturalWidth),
-            desiredMaxWidth
-        );
-
-        menu.style.width = `${targetWidth}px`;
-        menu.style.minWidth = `${desiredMinWidth}px`;
-        menu.style.maxWidth = `${desiredMaxWidth}px`;
+        menu.style.width = `${effectiveWidth}px`;
+        menu.style.minWidth = `${effectiveWidth}px`;
+        menu.style.maxWidth = `${effectiveWidth}px`;
 
         const menuRect = menu.getBoundingClientRect();
-        const menuWidth = menuRect.width;
         const menuHeight = menuRect.height;
 
-        const minLeft = spacing;
-        const maxLeft = viewportWidth - spacing - menuWidth;
+        let left = Math.round(buttonRect.left);
 
-        let left = buttonRect.left;
-
-        if (left + menuWidth > viewportWidth - spacing) {
-            left = Math.max(spacing, viewportWidth - spacing - menuWidth);
-        }
-        if (left < spacing) {
-            left = spacing;
-        }
-
-        let top = buttonRect.bottom + spacing;
+        let top = Math.round(buttonRect.bottom + spacing);
         let openUpwards = false;
         if (top + menuHeight > viewportHeight - spacing) {
-            const upwardTop = buttonRect.top - spacing - menuHeight;
+            const upwardTop = Math.round(buttonRect.top - spacing - menuHeight);
             if (upwardTop >= spacing) {
                 top = upwardTop;
                 openUpwards = true;

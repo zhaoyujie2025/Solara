@@ -1642,6 +1642,22 @@
         qualityLabel: document.getElementById("qualityLabel"),
     };
 
+    const PLACEHOLDER_HTML = `<div class="placeholder"><i class="fas fa-music"></i></div>`;
+    const paletteCache = new Map();
+    const themeDefaults = {
+        light: {
+            gradient: "",
+            primaryColor: "",
+            primaryColorDark: "",
+        },
+        dark: {
+            gradient: "",
+            primaryColor: "",
+            primaryColorDark: "",
+        }
+    };
+    let paletteRequestId = 0;
+
     function safeGetLocalStorage(key) {
         try {
             return localStorage.getItem(key);
@@ -1908,7 +1924,135 @@
         sourceMenuOpen: false,
         userScrolledLyrics: false, // 新增：用户是否手动滚动歌词
         lyricsScrollTimeout: null, // 新增：歌词滚动超时
+        themeDefaultsCaptured: false,
+        dynamicPalette: null,
+        currentPaletteImage: null,
     };
+
+    function captureThemeDefaults() {
+        if (state.themeDefaultsCaptured) {
+            return;
+        }
+
+        const initialIsDark = document.body.classList.contains("dark-mode");
+        document.body.classList.remove("dark-mode");
+        const lightStyles = getComputedStyle(document.body);
+        themeDefaults.light.gradient = lightStyles.getPropertyValue("--bg-gradient").trim();
+        themeDefaults.light.primaryColor = lightStyles.getPropertyValue("--primary-color").trim();
+        themeDefaults.light.primaryColorDark = lightStyles.getPropertyValue("--primary-color-dark").trim();
+
+        document.body.classList.add("dark-mode");
+        const darkStyles = getComputedStyle(document.body);
+        themeDefaults.dark.gradient = darkStyles.getPropertyValue("--bg-gradient").trim();
+        themeDefaults.dark.primaryColor = darkStyles.getPropertyValue("--primary-color").trim();
+        themeDefaults.dark.primaryColorDark = darkStyles.getPropertyValue("--primary-color-dark").trim();
+
+        if (!initialIsDark) {
+            document.body.classList.remove("dark-mode");
+        }
+
+        state.themeDefaultsCaptured = true;
+    }
+
+    function applyThemeTokens(tokens) {
+        if (!tokens) return;
+        if (tokens.primaryColor) {
+            document.documentElement.style.setProperty("--primary-color", tokens.primaryColor);
+        }
+        if (tokens.primaryColorDark) {
+            document.documentElement.style.setProperty("--primary-color-dark", tokens.primaryColorDark);
+        }
+    }
+
+    function applyDynamicGradient() {
+        if (!state.themeDefaultsCaptured) {
+            captureThemeDefaults();
+        }
+        const isDark = document.body.classList.contains("dark-mode");
+        const mode = isDark ? "dark" : "light";
+        const defaults = themeDefaults[mode];
+
+        if (defaults.gradient) {
+            document.documentElement.style.setProperty("--bg-gradient", defaults.gradient);
+        } else {
+            document.documentElement.style.removeProperty("--bg-gradient");
+        }
+        applyThemeTokens(defaults);
+
+        const palette = state.dynamicPalette;
+        if (palette && palette.gradients && palette.gradients[mode]) {
+            const gradientInfo = palette.gradients[mode];
+            if (gradientInfo && gradientInfo.gradient) {
+                document.documentElement.style.setProperty("--bg-gradient", gradientInfo.gradient);
+            }
+            if (palette.tokens && palette.tokens[mode]) {
+                applyThemeTokens(palette.tokens[mode]);
+            }
+        }
+    }
+
+    function resetDynamicBackground() {
+        paletteRequestId += 1;
+        state.dynamicPalette = null;
+        state.currentPaletteImage = null;
+        applyDynamicGradient();
+    }
+
+    function showAlbumCoverPlaceholder() {
+        dom.albumCover.innerHTML = PLACEHOLDER_HTML;
+        dom.albumCover.classList.remove("loading");
+        resetDynamicBackground();
+    }
+
+    function setAlbumCoverImage(url) {
+        dom.albumCover.innerHTML = `<img src="${url}" alt="专辑封面">`;
+        dom.albumCover.classList.remove("loading");
+    }
+
+    async function fetchPaletteData(imageUrl) {
+        if (paletteCache.has(imageUrl)) {
+            return paletteCache.get(imageUrl);
+        }
+
+        const response = await fetch(`/palette?image=${encodeURIComponent(imageUrl)}`);
+        if (!response.ok) {
+            throw new Error(`Palette request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        paletteCache.set(imageUrl, data);
+        return data;
+    }
+
+    async function updateDynamicBackground(imageUrl) {
+        paletteRequestId += 1;
+        const requestId = paletteRequestId;
+
+        if (!imageUrl) {
+            resetDynamicBackground();
+            return;
+        }
+
+        if (state.currentPaletteImage === imageUrl && state.dynamicPalette) {
+            applyDynamicGradient();
+            return;
+        }
+
+        try {
+            const palette = await fetchPaletteData(imageUrl);
+            if (requestId !== paletteRequestId) {
+                return;
+            }
+            state.dynamicPalette = palette;
+            state.currentPaletteImage = imageUrl;
+            applyDynamicGradient();
+        } catch (error) {
+            console.warn("获取动态背景失败:", error);
+            if (requestId === paletteRequestId) {
+                resetDynamicBackground();
+            }
+        }
+    }
 
     function savePlayerState() {
         safeSetLocalStorage("playlistSongs", JSON.stringify(state.playlistSongs));
@@ -2494,13 +2638,18 @@
 
     function setupInteractions() {
         function applyTheme(isDark) {
+            if (!state.themeDefaultsCaptured) {
+                captureThemeDefaults();
+            }
             document.body.classList.toggle("dark-mode", isDark);
             dom.themeToggleButton.classList.toggle("is-dark", isDark);
             const label = isDark ? "切换为浅色模式" : "切换为深色模式";
             dom.themeToggleButton.setAttribute("aria-label", label);
             dom.themeToggleButton.setAttribute("title", label);
+            applyDynamicGradient();
         }
 
+        captureThemeDefaults();
         const savedTheme = safeGetLocalStorage("theme");
         const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
         const initialIsDark = savedTheme ? savedTheme === "dark" : prefersDark;
@@ -2710,34 +2859,32 @@
             try {
                 dom.albumCover.classList.add("loading");
                 const picUrl = API.getPicUrl(song);
-                
+
                 // 修复：直接使用JSONP请求获取封面数据
                 const data = await API.fetchJson(picUrl);
-                
+
                 if (data && data.url) {
                     // 预加载图片以确保加载成功
                     const img = new Image();
+                    const imageUrl = preferHttpsUrl(data.url);
+                    img.crossOrigin = "anonymous";
                     img.onload = () => {
-                        dom.albumCover.innerHTML = `<img src="${data.url}" alt="专辑封面">`;
-                        dom.albumCover.classList.remove("loading");
+                        setAlbumCoverImage(imageUrl);
+                        updateDynamicBackground(imageUrl);
                     };
                     img.onerror = () => {
-                        dom.albumCover.innerHTML = "<div class=\"placeholder\"><i class=\"fas fa-music\"></i></div>";
-                        dom.albumCover.classList.remove("loading");
+                        showAlbumCoverPlaceholder();
                     };
-                    img.src = data.url;
+                    img.src = imageUrl;
                 } else {
-                    dom.albumCover.innerHTML = "<div class=\"placeholder\"><i class=\"fas fa-music\"></i></div>";
-                    dom.albumCover.classList.remove("loading");
+                    showAlbumCoverPlaceholder();
                 }
             } catch (error) {
                 console.error("加载封面失败:", error);
-                dom.albumCover.innerHTML = "<div class=\"placeholder\"><i class=\"fas fa-music\"></i></div>";
-                dom.albumCover.classList.remove("loading");
+                showAlbumCoverPlaceholder();
             }
         } else {
-            dom.albumCover.innerHTML = "<div class=\"placeholder\"><i class=\"fas fa-music\"></i></div>";
-            dom.albumCover.classList.remove("loading");
+            showAlbumCoverPlaceholder();
         }
     }
     
@@ -3072,7 +3219,7 @@
                 updateProgressBarBackground(0, 1);
                 dom.currentSongTitle.textContent = "选择一首歌曲开始播放";
                 dom.currentSongArtist.textContent = "未知艺术家";
-                dom.albumCover.innerHTML = "<div class=\"placeholder\"><i class=\"fas fa-music\"></i></div>";
+                showAlbumCoverPlaceholder();
                 dom.lyrics.innerHTML = "";
                 dom.lyrics.classList.add("empty");
                 updatePlayPauseButton();
@@ -3130,7 +3277,7 @@
             updateProgressBarBackground(0, 1);
             dom.currentSongTitle.textContent = "选择一首歌曲开始播放";
             dom.currentSongArtist.textContent = "未知艺术家";
-            dom.albumCover.innerHTML = "<div class=\"placeholder\"><i class=\"fas fa-music\"></i></div>";
+            showAlbumCoverPlaceholder();
             dom.lyrics.innerHTML = "";
             dom.lyrics.classList.add("empty");
             updatePlayPauseButton();

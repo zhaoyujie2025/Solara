@@ -268,6 +268,7 @@
             border-radius: 12px;
             box-shadow: 0 12px 30px rgba(0,0,0,0.18);
             border: 1px solid var(--border-color);
+            box-sizing: border-box;
             min-width: 100%;
             max-height: 320px;
             overflow-y: auto;
@@ -275,7 +276,7 @@
             opacity: 0;
             visibility: hidden;
             transform: translateY(-10px);
-            transition: all 0.2s ease;
+            transition: opacity 0.18s ease, transform 0.18s ease;
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             z-index: 100000;
@@ -292,7 +293,7 @@
         .source-menu.floating {
             position: fixed;
             transform: translateY(0);
-            will-change: top, left;
+            will-change: opacity, transform;
         }
 
         .source-menu.floating:not(.show) {
@@ -1905,11 +1906,17 @@
     // 新增：显示搜索结果
     function showSearchResults() {
         toggleSearchMode(true);
+        if (state.sourceMenuOpen) {
+            requestAnimationFrame(updateSourceMenuPosition);
+        }
     }
 
     // 新增：隐藏搜索结果 - 优化立即收起
     function hideSearchResults() {
         toggleSearchMode(false);
+        if (state.sourceMenuOpen) {
+            requestAnimationFrame(updateSourceMenuPosition);
+        }
         // 立即清空搜索结果内容
         dom.searchResults.innerHTML = "";
     }
@@ -2143,32 +2150,28 @@
 
         const menu = dom.sourceMenu;
         const buttonRect = dom.sourceSelectButton.getBoundingClientRect();
-        const viewportWidth = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
         const viewportHeight = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
-        const spacing = 12;
+        const viewportWidth = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
+        const spacing = 10;
 
         menu.classList.add("floating");
-        menu.style.width = "auto";
-        menu.style.maxWidth = `${Math.max(0, viewportWidth - spacing * 2)}px`;
-        const minWidth = Math.min(Math.max(buttonRect.width, 160), Math.max(0, viewportWidth - spacing * 2));
-        menu.style.minWidth = `${minWidth}px`;
+        const buttonWidth = Math.round(buttonRect.width);
+        const effectiveWidth = Math.max(buttonWidth, 0);
+
+        menu.style.width = `${effectiveWidth}px`;
+        menu.style.minWidth = `${effectiveWidth}px`;
+        menu.style.maxWidth = `${effectiveWidth}px`;
 
         const menuRect = menu.getBoundingClientRect();
-        const menuWidth = menuRect.width;
         const menuHeight = menuRect.height;
+        const menuWidth = Math.round(menuRect.width || effectiveWidth);
 
-        let left = buttonRect.left;
-        if (left + menuWidth > viewportWidth - spacing) {
-            left = Math.max(spacing, viewportWidth - spacing - menuWidth);
-        }
-        if (left < spacing) {
-            left = spacing;
-        }
+        let left = Math.round(buttonRect.left);
 
-        let top = buttonRect.bottom + spacing;
+        let top = Math.round(buttonRect.bottom + spacing);
         let openUpwards = false;
         if (top + menuHeight > viewportHeight - spacing) {
-            const upwardTop = buttonRect.top - spacing - menuHeight;
+            const upwardTop = Math.round(buttonRect.top - spacing - menuHeight);
             if (upwardTop >= spacing) {
                 top = upwardTop;
                 openUpwards = true;
@@ -2176,6 +2179,22 @@
                 top = Math.max(spacing, viewportHeight - spacing - menuHeight);
             }
         }
+
+        const searchArea = dom.sourceSelectButton.closest(".search-area");
+        if (searchArea) {
+            const areaRect = searchArea.getBoundingClientRect();
+            const minAreaLeft = Math.round(areaRect.left + spacing);
+            const maxAreaLeft = Math.round(areaRect.right - spacing - menuWidth);
+            if (minAreaLeft <= maxAreaLeft) {
+                left = Math.min(Math.max(left, minAreaLeft), maxAreaLeft);
+            } else {
+                left = Math.max(left, Math.round(areaRect.left));
+            }
+        }
+
+        const minViewportLeft = spacing;
+        const maxViewportLeft = Math.max(minViewportLeft, Math.round(viewportWidth - spacing - menuWidth));
+        left = Math.min(Math.max(left, minViewportLeft), maxViewportLeft);
 
         menu.style.left = `${left}px`;
         menu.style.top = `${top}px`;
@@ -2195,12 +2214,13 @@
 
     function openSourceMenu() {
         if (!dom.sourceMenu || !dom.sourceSelectButton) return;
+        state.sourceMenuOpen = true;
         buildSourceMenu();
         dom.sourceMenu.classList.add("floating");
+        updateSourceMenuPosition();
         dom.sourceMenu.classList.add("show");
         dom.sourceSelectButton.classList.add("active");
         dom.sourceSelectButton.setAttribute("aria-expanded", "true");
-        state.sourceMenuOpen = true;
         requestAnimationFrame(updateSourceMenuPosition);
     }
 

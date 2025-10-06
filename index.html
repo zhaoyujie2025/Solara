@@ -626,30 +626,36 @@
         /* 清空播放列表按钮 */
         .clear-playlist-btn {
             position: absolute;
-            top: 8px;
-            right: 8px;
-            background: rgba(255, 59, 48, 0.8);
-            border: none;
-            border-radius: 6px;
-            width: 28px;
-            height: 28px;
+            top: 12px;
+            right: 12px;
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
+            border-radius: 50%;
+            border: 1px solid var(--border-color);
+            background: var(--component-bg);
+            color: var(--text-secondary-color);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
             cursor: pointer;
-            transition: all 0.2s ease;
-            color: white;
-            font-size: 12px;
+            transition: all 0.25s ease;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             z-index: 1000;
+            font-size: 16px;
         }
 
         .clear-playlist-btn:hover {
-            background: rgba(255, 59, 48, 1);
-            transform: scale(1.05);
+            color: var(--warning-color);
+            border-color: rgba(231, 76, 60, 0.45);
+            box-shadow: 0 10px 25px rgba(231, 76, 60, 0.25);
+            transform: translateY(-2px);
         }
 
         .clear-playlist-btn:active {
-            transform: scale(0.95);
+            transform: translateY(0);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
         }
 
         .lyrics {

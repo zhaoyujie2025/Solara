@@ -12,6 +12,7 @@
         :root {
             --font-main: 'Noto Sans SC', 'Segoe UI', Arial, sans-serif;
             --bg-gradient: linear-gradient(140deg, #e0f5e9 0%, #c6f0e0 35%, #a3e4d7 100%);
+            --bg-gradient-next: var(--bg-gradient);
             --container-bg: rgba(255, 255, 255, 0.6);
             --container-shadow: rgba(0, 0, 0, 0.1);
             --backdrop-blur: 12px;
@@ -103,10 +104,40 @@
             margin: 0;
             padding: 20px;
             box-sizing: border-box;
-            background-image: var(--bg-gradient);
-            background-attachment: fixed;
             color: var(--text-color);
-            transition: background 0.5s, color 0.5s;
+            transition: color 0.5s;
+            background-color: #0f0f0f;
+        }
+
+        .background-stage {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: -2;
+            overflow: hidden;
+        }
+
+        .background-stage__layer {
+            position: absolute;
+            inset: 0;
+            background-attachment: fixed;
+            background-size: cover;
+            background-position: center;
+            filter: saturate(105%);
+        }
+
+        .background-stage__layer--base {
+            background-image: var(--bg-gradient);
+        }
+
+        .background-stage__layer--transition {
+            background-image: var(--bg-gradient-next);
+            opacity: 0;
+            transition: opacity 0.85s ease;
+        }
+
+        body.background-transitioning .background-stage__layer--transition {
+            opacity: 1;
         }
 
         /* 16:9 容器布局 */
@@ -1547,7 +1578,11 @@
     </style>
 </head>
 <body>
-<div class="container" id="mainContainer">
+    <div class="background-stage" id="backgroundStage" aria-hidden="true">
+        <div class="background-stage__layer background-stage__layer--base" id="backgroundBaseLayer"></div>
+        <div class="background-stage__layer background-stage__layer--transition" id="backgroundTransitionLayer"></div>
+    </div>
+    <div class="container" id="mainContainer">
     <div class="header">
         <h1>音乐播放器</h1>
         <div class="warning">免费API来自GD音乐台(music.gdstudio.xyz)，仅供学习交流使用，请支持正版音乐奥。</div>
@@ -1657,6 +1692,9 @@
 <script>
     const dom = {
         container: document.getElementById("mainContainer"),
+        backgroundStage: document.getElementById("backgroundStage"),
+        backgroundBaseLayer: document.getElementById("backgroundBaseLayer"),
+        backgroundTransitionLayer: document.getElementById("backgroundTransitionLayer"),
         playlist: document.getElementById("playlist"),
         playlistItems: document.getElementById("playlistItems"),
         lyrics: document.getElementById("lyrics"),
@@ -1694,6 +1732,10 @@
     const paletteCache = new Map();
     const PALETTE_STORAGE_KEY = "paletteCache.v1";
     let paletteAbortController = null;
+    const BACKGROUND_TRANSITION_DURATION = 850;
+    let backgroundTransitionTimer = null;
+    const PALETTE_APPLY_DELAY = 140;
+    let pendingPaletteTimer = null;
     const themeDefaults = {
         light: {
             gradient: "",
@@ -2007,7 +2049,20 @@
         themeDefaultsCaptured: false,
         dynamicPalette: null,
         currentPaletteImage: null,
+        pendingPaletteData: null,
+        pendingPaletteImage: null,
+        pendingPaletteImmediate: false,
+        pendingPaletteReady: false,
+        audioReadyForPalette: true,
+        currentGradient: '',
     };
+
+    state.currentGradient = getComputedStyle(document.documentElement)
+        .getPropertyValue("--bg-gradient")
+        .trim();
+    if (state.currentGradient) {
+        document.documentElement.style.setProperty("--bg-gradient-next", state.currentGradient);
+    }
 
     function captureThemeDefaults() {
         if (state.themeDefaultsCaptured) {
@@ -2044,7 +2099,61 @@
         }
     }
 
-    function applyDynamicGradient() {
+    function setDocumentGradient(gradient, { immediate = false } = {}) {
+        const normalized = (gradient || "").trim();
+        const current = (state.currentGradient || "").trim();
+        const shouldSkipTransition = immediate || normalized === current;
+
+        if (!dom.backgroundTransitionLayer || !dom.backgroundBaseLayer) {
+            if (normalized) {
+                document.documentElement.style.setProperty("--bg-gradient", normalized);
+                document.documentElement.style.setProperty("--bg-gradient-next", normalized);
+            } else {
+                document.documentElement.style.removeProperty("--bg-gradient");
+                document.documentElement.style.removeProperty("--bg-gradient-next");
+            }
+            state.currentGradient = normalized;
+            return;
+        }
+
+        window.clearTimeout(backgroundTransitionTimer);
+
+        if (shouldSkipTransition) {
+            if (normalized) {
+                document.documentElement.style.setProperty("--bg-gradient", normalized);
+                document.documentElement.style.setProperty("--bg-gradient-next", normalized);
+            } else {
+                document.documentElement.style.removeProperty("--bg-gradient");
+                document.documentElement.style.removeProperty("--bg-gradient-next");
+            }
+            document.body.classList.remove("background-transitioning");
+            state.currentGradient = normalized;
+            return;
+        }
+
+        if (normalized) {
+            document.documentElement.style.setProperty("--bg-gradient-next", normalized);
+        } else {
+            document.documentElement.style.removeProperty("--bg-gradient-next");
+        }
+
+        requestAnimationFrame(() => {
+            document.body.classList.add("background-transitioning");
+            backgroundTransitionTimer = window.setTimeout(() => {
+                if (normalized) {
+                    document.documentElement.style.setProperty("--bg-gradient", normalized);
+                    document.documentElement.style.setProperty("--bg-gradient-next", normalized);
+                } else {
+                    document.documentElement.style.removeProperty("--bg-gradient");
+                    document.documentElement.style.removeProperty("--bg-gradient-next");
+                }
+                document.body.classList.remove("background-transitioning");
+                state.currentGradient = normalized;
+            }, BACKGROUND_TRANSITION_DURATION);
+        });
+    }
+
+    function applyDynamicGradient(options = {}) {
         if (!state.themeDefaultsCaptured) {
             captureThemeDefaults();
         }
@@ -2052,26 +2161,34 @@
         const mode = isDark ? "dark" : "light";
         const defaults = themeDefaults[mode];
 
-        if (defaults.gradient) {
-            document.documentElement.style.setProperty("--bg-gradient", defaults.gradient);
-        } else {
-            document.documentElement.style.removeProperty("--bg-gradient");
-        }
+        let targetGradient = defaults.gradient || "";
         applyThemeTokens(defaults);
 
         const palette = state.dynamicPalette;
         if (palette && palette.gradients && palette.gradients[mode]) {
             const gradientInfo = palette.gradients[mode];
             if (gradientInfo && gradientInfo.gradient) {
-                document.documentElement.style.setProperty("--bg-gradient", gradientInfo.gradient);
+                targetGradient = gradientInfo.gradient;
             }
             if (palette.tokens && palette.tokens[mode]) {
                 applyThemeTokens(palette.tokens[mode]);
             }
         }
+
+        setDocumentGradient(targetGradient, options);
     }
 
-    function resetDynamicBackground() {
+    function queueDefaultPalette(options = {}) {
+        window.clearTimeout(pendingPaletteTimer);
+        pendingPaletteTimer = null;
+        state.pendingPaletteData = null;
+        state.pendingPaletteImage = null;
+        state.pendingPaletteImmediate = Boolean(options.immediate);
+        state.pendingPaletteReady = true;
+        attemptPaletteApplication();
+    }
+
+    function resetDynamicBackground(options = {}) {
         paletteRequestId += 1;
         if (paletteAbortController) {
             paletteAbortController.abort();
@@ -2079,13 +2196,55 @@
         }
         state.dynamicPalette = null;
         state.currentPaletteImage = null;
-        applyDynamicGradient();
+        queueDefaultPalette(options);
+    }
+
+    function queuePaletteApplication(palette, imageUrl, options = {}) {
+        window.clearTimeout(pendingPaletteTimer);
+        pendingPaletteTimer = null;
+        state.pendingPaletteData = palette || null;
+        state.pendingPaletteImage = imageUrl || null;
+        state.pendingPaletteImmediate = Boolean(options.immediate);
+        state.pendingPaletteReady = true;
+        attemptPaletteApplication();
+    }
+
+    function attemptPaletteApplication() {
+        if (!state.pendingPaletteReady || !state.audioReadyForPalette) {
+            return;
+        }
+
+        const palette = state.pendingPaletteData || null;
+        const imageUrl = state.pendingPaletteImage || null;
+        const immediate = state.pendingPaletteImmediate;
+
+        state.pendingPaletteData = null;
+        state.pendingPaletteImage = null;
+        state.pendingPaletteImmediate = false;
+        state.pendingPaletteReady = false;
+
+        const apply = () => {
+            pendingPaletteTimer = null;
+            state.dynamicPalette = palette;
+            state.currentPaletteImage = imageUrl;
+            applyDynamicGradient({ immediate: false });
+        };
+
+        if (immediate) {
+            pendingPaletteTimer = null;
+            state.dynamicPalette = palette;
+            state.currentPaletteImage = imageUrl;
+            applyDynamicGradient({ immediate: true });
+            return;
+        }
+
+        pendingPaletteTimer = window.setTimeout(apply, PALETTE_APPLY_DELAY);
     }
 
     function showAlbumCoverPlaceholder() {
         dom.albumCover.innerHTML = PLACEHOLDER_HTML;
         dom.albumCover.classList.remove("loading");
-        resetDynamicBackground();
+        queueDefaultPalette();
     }
 
     function setAlbumCoverImage(url) {
@@ -2148,14 +2307,12 @@
             const cached = paletteCache.get(imageUrl);
             paletteCache.delete(imageUrl);
             paletteCache.set(imageUrl, cached);
-            state.dynamicPalette = cached;
-            state.currentPaletteImage = imageUrl;
-            applyDynamicGradient();
+            queuePaletteApplication(cached, imageUrl);
             return;
         }
 
         if (state.currentPaletteImage === imageUrl && state.dynamicPalette) {
-            applyDynamicGradient();
+            queuePaletteApplication(state.dynamicPalette, imageUrl);
             return;
         }
 
@@ -2172,9 +2329,7 @@
             if (requestId !== paletteRequestId) {
                 return;
             }
-            state.dynamicPalette = palette;
-            state.currentPaletteImage = imageUrl;
-            applyDynamicGradient();
+            queuePaletteApplication(palette, imageUrl);
         } catch (error) {
             if (error?.name === "AbortError") {
                 return;
@@ -2984,46 +3139,54 @@
     }
 
     // 修复：更新当前歌曲信息和封面
-    async function updateCurrentSongInfo(song) {
+    function updateCurrentSongInfo(song) {
         state.currentSong = song;
         dom.currentSongTitle.textContent = song.name;
-        
+
         // 修复艺人名称显示问题 - 使用正确的字段名
         const artistText = Array.isArray(song.artist) ? song.artist.join(', ') : (song.artist || '未知艺术家');
         dom.currentSongArtist.textContent = artistText;
-        
+
         // 加载封面
         if (song.pic_id) {
-            try {
-                dom.albumCover.classList.add("loading");
-                const picUrl = API.getPicUrl(song);
+            dom.albumCover.classList.add("loading");
+            const picUrl = API.getPicUrl(song);
 
-                // 修复：直接使用JSONP请求获取封面数据
-                const data = await API.fetchJson(picUrl);
+            API.fetchJson(picUrl)
+                .then(data => {
+                    if (!data || !data.url) {
+                        throw new Error("封面地址缺失");
+                    }
 
-                if (data && data.url) {
-                    // 预加载图片以确保加载成功
                     const img = new Image();
                     const imageUrl = preferHttpsUrl(data.url);
                     img.crossOrigin = "anonymous";
                     img.onload = () => {
+                        if (state.currentSong !== song) {
+                            return;
+                        }
                         setAlbumCoverImage(imageUrl);
                         updateDynamicBackground(imageUrl);
                     };
                     img.onerror = () => {
+                        if (state.currentSong !== song) {
+                            return;
+                        }
                         showAlbumCoverPlaceholder();
                     };
                     img.src = imageUrl;
-                } else {
-                    showAlbumCoverPlaceholder();
-                }
-            } catch (error) {
-                console.error("加载封面失败:", error);
-                showAlbumCoverPlaceholder();
-            }
+                })
+                .catch(error => {
+                    console.error("加载封面失败:", error);
+                    if (state.currentSong === song) {
+                        showAlbumCoverPlaceholder();
+                    }
+                });
         } else {
             showAlbumCoverPlaceholder();
         }
+
+        return Promise.resolve();
     }
     
     // 搜索功能 - 修复搜索下拉框显示问题
@@ -3499,8 +3662,15 @@
     async function playSong(song, options = {}) {
         const { autoplay = true, startTime = 0, preserveProgress = false } = options;
 
+        window.clearTimeout(pendingPaletteTimer);
+        state.audioReadyForPalette = false;
+        state.pendingPaletteData = null;
+        state.pendingPaletteImage = null;
+        state.pendingPaletteImmediate = false;
+        state.pendingPaletteReady = false;
+
         try {
-            await updateCurrentSongInfo(song);
+            updateCurrentSongInfo(song);
 
             const quality = state.playbackQuality || '320';
             const audioUrl = API.getSongUrl(song, quality);
@@ -3577,6 +3747,9 @@
 
             state.currentAudioUrl = selectedAudioUrl;
 
+            state.audioReadyForPalette = true;
+            attemptPaletteApplication();
+
             if (state.pendingSeekTime != null) {
                 setAudioCurrentTime(state.pendingSeekTime);
                 state.pendingSeekTime = null;
@@ -3606,6 +3779,10 @@
             console.error('播放歌曲失败:', error);
             throw error;
         } finally {
+            if (!state.audioReadyForPalette) {
+                state.audioReadyForPalette = true;
+                attemptPaletteApplication();
+            }
             savePlayerState();
         }
     }

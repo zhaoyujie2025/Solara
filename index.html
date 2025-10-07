@@ -3311,13 +3311,22 @@
     }
 
     // 修复：更新当前歌曲信息和封面
-    function updateCurrentSongInfo(song) {
+    function updateCurrentSongInfo(song, options = {}) {
+        const { loadArtwork = true } = options;
         state.currentSong = song;
         dom.currentSongTitle.textContent = song.name;
 
         // 修复艺人名称显示问题 - 使用正确的字段名
         const artistText = Array.isArray(song.artist) ? song.artist.join(', ') : (song.artist || '未知艺术家');
         dom.currentSongArtist.textContent = artistText;
+
+        cancelDeferredPaletteUpdate();
+
+        if (!loadArtwork) {
+            dom.albumCover.classList.add("loading");
+            dom.albumCover.innerHTML = PLACEHOLDER_HTML;
+            return Promise.resolve();
+        }
 
         // 加载封面
         if (song.pic_id) {
@@ -3945,7 +3954,7 @@
         state.pendingPaletteReady = false;
 
         try {
-            updateCurrentSongInfo(song);
+            updateCurrentSongInfo(song, { loadArtwork: false });
 
             const quality = state.playbackQuality || '320';
             const audioUrl = API.getSongUrl(song, quality);
@@ -4022,9 +4031,6 @@
 
             state.currentAudioUrl = selectedAudioUrl;
 
-            state.audioReadyForPalette = true;
-            attemptPaletteApplication();
-
             if (state.pendingSeekTime != null) {
                 setAudioCurrentTime(state.pendingSeekTime);
                 state.pendingSeekTime = null;
@@ -4034,31 +4040,77 @@
 
             state.lastSavedPlaybackTime = state.currentPlaybackTime;
 
+            let playPromise = null;
+
             if (autoplay) {
-                const playPromise = dom.audioPlayer.play();
+                playPromise = dom.audioPlayer.play();
                 if (playPromise !== undefined) {
                     playPromise.catch(error => {
                         console.error('播放失败:', error);
                         showNotification('播放失败，请检查网络连接', 'error');
                     });
+                } else {
+                    playPromise = null;
                 }
             } else {
                 dom.audioPlayer.pause();
                 updatePlayPauseButton();
             }
 
-            loadLyrics(song);
+            scheduleDeferredSongAssets(song, playPromise);
 
             debugLog(`开始播放: ${song.name} @${quality}`);
         } catch (error) {
             console.error('播放歌曲失败:', error);
             throw error;
         } finally {
-            if (!state.audioReadyForPalette) {
-                state.audioReadyForPalette = true;
-                attemptPaletteApplication();
-            }
             savePlayerState();
+        }
+    }
+
+    function scheduleDeferredSongAssets(song, playPromise) {
+        const run = () => {
+            if (state.currentSong !== song) {
+                return;
+            }
+
+            updateCurrentSongInfo(song, { loadArtwork: true });
+            loadLyrics(song);
+            state.audioReadyForPalette = true;
+            attemptPaletteApplication();
+        };
+
+        const kickoff = () => {
+            if (state.currentSong !== song) {
+                return;
+            }
+
+            if (typeof window.requestAnimationFrame === "function") {
+                window.requestAnimationFrame(() => {
+                    if (state.currentSong !== song) {
+                        return;
+                    }
+
+                    if (typeof window.requestIdleCallback === "function") {
+                        window.requestIdleCallback(() => {
+                            if (state.currentSong !== song) {
+                                return;
+                            }
+                            run();
+                        }, { timeout: 600 });
+                    } else {
+                        run();
+                    }
+                });
+            } else {
+                window.setTimeout(run, 0);
+            }
+        };
+
+        if (playPromise && typeof playPromise.finally === "function") {
+            playPromise.finally(kickoff);
+        } else {
+            kickoff();
         }
     }
 

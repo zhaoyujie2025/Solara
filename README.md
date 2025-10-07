@@ -2,7 +2,8 @@
 
 > 🌐 由轻量后端服务支撑的现代化网页音乐播放器，整合多种音乐聚合接口，覆盖搜索、播放、歌词同步与音频下载全流程。
 
-![demo](./Preview.gif)
+![Review-ezgif com-optimize](https://github.com/user-attachments/assets/487157de-bf71-4bc9-9e49-16a4f0a14472)
+
 
 ## 🌟 主要特性
 - 🔍 跨站曲库检索：一键切换数据源，支持分页浏览并批量导入播放队列。

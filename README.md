@@ -32,8 +32,6 @@
 
 ## ☁️ 后端部署
 1. Fork 或克隆本仓库到你自己的 Cloudflare Pages 项目。
-2. 在 Cloudflare Pages 控制台启用 Functions，部署 `functions/proxy.ts` 作为 `/api` 代理端点。
-3. 将线上部署地址填入前端 `API.baseUrl`，例如 `https://your-domain.pages.dev/api`，即可由后端转发聚合接口与音频流请求。
 
 ## ⚙️ 配置提示
 - 🔗 API 基地址定义在 index.html 中的 `API.baseUrl`（约 1300 行），可替换为自建接口域名。

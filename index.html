@@ -2066,6 +2066,19 @@
     let qualityMenuPositionFrame = null;
     let floatingMenuListenersAttached = false;
 
+    function runWithoutTransition(element, callback) {
+        if (!element || typeof callback !== "function") return;
+        const previousTransition = element.style.transition;
+        element.style.transition = "none";
+        callback();
+        void element.offsetHeight;
+        if (previousTransition) {
+            element.style.transition = previousTransition;
+        } else {
+            element.style.removeProperty("transition");
+        }
+    }
+
     function cancelSourceMenuPositionUpdate() {
         if (sourceMenuPositionFrame !== null) {
             window.cancelAnimationFrame(sourceMenuPositionFrame);
@@ -2991,10 +3004,20 @@
         if (!dom.playerQualityMenu || !dom.qualityToggle) return;
         state.qualityMenuOpen = true;
         ensureFloatingMenuListeners();
-        dom.playerQualityMenu.classList.add("floating");
-        dom.playerQualityMenu.classList.add("show");
+        const menu = dom.playerQualityMenu;
         dom.qualityToggle.classList.add("active");
-        updatePlayerQualityMenuPosition();
+        menu.classList.add("floating");
+        menu.classList.remove("show");
+
+        runWithoutTransition(menu, () => {
+            updatePlayerQualityMenuPosition();
+        });
+
+        requestAnimationFrame(() => {
+            if (!state.qualityMenuOpen) return;
+            menu.classList.add("show");
+        });
+
         schedulePlayerQualityMenuPositionUpdate();
     }
 

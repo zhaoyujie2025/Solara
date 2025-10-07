@@ -1737,6 +1737,9 @@
     let backgroundTransitionTimer = null;
     const PALETTE_APPLY_DELAY = 140;
     let pendingPaletteTimer = null;
+    let deferredPaletteHandle = null;
+    let deferredPaletteType = "";
+    let deferredPaletteUrl = null;
     const themeDefaults = {
         light: {
             gradient: "",
@@ -2023,6 +2026,7 @@
     const state = {
         onlineSongs: [],
         searchResults: [],
+        renderedSearchCount: 0,
         currentTrackIndex: savedCurrentTrackIndex,
         currentAudioUrl: null,
         lyricsData: [],
@@ -2057,6 +2061,104 @@
         audioReadyForPalette: true,
         currentGradient: '',
     };
+
+    let sourceMenuPositionFrame = null;
+    let qualityMenuPositionFrame = null;
+    let floatingMenuListenersAttached = false;
+
+    function runWithoutTransition(element, callback) {
+        if (!element || typeof callback !== "function") return;
+        const previousTransition = element.style.transition;
+        element.style.transition = "none";
+        callback();
+        void element.offsetHeight;
+        if (previousTransition) {
+            element.style.transition = previousTransition;
+        } else {
+            element.style.removeProperty("transition");
+        }
+    }
+
+    function cancelSourceMenuPositionUpdate() {
+        if (sourceMenuPositionFrame !== null) {
+            window.cancelAnimationFrame(sourceMenuPositionFrame);
+            sourceMenuPositionFrame = null;
+        }
+    }
+
+    function scheduleSourceMenuPositionUpdate() {
+        if (!state.sourceMenuOpen) {
+            cancelSourceMenuPositionUpdate();
+            return;
+        }
+        if (sourceMenuPositionFrame !== null) {
+            return;
+        }
+        sourceMenuPositionFrame = window.requestAnimationFrame(() => {
+            sourceMenuPositionFrame = null;
+            updateSourceMenuPosition();
+        });
+    }
+
+    function cancelPlayerQualityMenuPositionUpdate() {
+        if (qualityMenuPositionFrame !== null) {
+            window.cancelAnimationFrame(qualityMenuPositionFrame);
+            qualityMenuPositionFrame = null;
+        }
+    }
+
+    function schedulePlayerQualityMenuPositionUpdate() {
+        if (!state.qualityMenuOpen) {
+            cancelPlayerQualityMenuPositionUpdate();
+            return;
+        }
+        if (qualityMenuPositionFrame !== null) {
+            return;
+        }
+        qualityMenuPositionFrame = window.requestAnimationFrame(() => {
+            qualityMenuPositionFrame = null;
+            updatePlayerQualityMenuPosition();
+        });
+    }
+
+    function handleFloatingMenuResize() {
+        if (state.sourceMenuOpen) {
+            scheduleSourceMenuPositionUpdate();
+        }
+        if (state.qualityMenuOpen) {
+            schedulePlayerQualityMenuPositionUpdate();
+        }
+    }
+
+    function handleFloatingMenuScroll() {
+        if (state.sourceMenuOpen) {
+            scheduleSourceMenuPositionUpdate();
+        }
+        if (state.qualityMenuOpen) {
+            schedulePlayerQualityMenuPositionUpdate();
+        }
+    }
+
+    function ensureFloatingMenuListeners() {
+        if (floatingMenuListenersAttached) {
+            return;
+        }
+        window.addEventListener("resize", handleFloatingMenuResize);
+        window.addEventListener("scroll", handleFloatingMenuScroll, { passive: true, capture: true });
+        floatingMenuListenersAttached = true;
+    }
+
+    function releaseFloatingMenuListenersIfIdle() {
+        if (state.sourceMenuOpen || state.qualityMenuOpen) {
+            return;
+        }
+        if (!floatingMenuListenersAttached) {
+            return;
+        }
+        window.removeEventListener("resize", handleFloatingMenuResize);
+        window.removeEventListener("scroll", handleFloatingMenuScroll, true);
+        floatingMenuListenersAttached = false;
+    }
 
     state.currentGradient = getComputedStyle(document.documentElement)
         .getPropertyValue("--bg-gradient")
@@ -2182,6 +2284,7 @@
     function queueDefaultPalette(options = {}) {
         window.clearTimeout(pendingPaletteTimer);
         pendingPaletteTimer = null;
+        cancelDeferredPaletteUpdate();
         state.pendingPaletteData = null;
         state.pendingPaletteImage = null;
         state.pendingPaletteImmediate = Boolean(options.immediate);
@@ -2191,6 +2294,7 @@
 
     function resetDynamicBackground(options = {}) {
         paletteRequestId += 1;
+        cancelDeferredPaletteUpdate();
         if (paletteAbortController) {
             paletteAbortController.abort();
             paletteAbortController = null;
@@ -2208,6 +2312,64 @@
         state.pendingPaletteImmediate = Boolean(options.immediate);
         state.pendingPaletteReady = true;
         attemptPaletteApplication();
+    }
+
+    function cancelDeferredPaletteUpdate() {
+        if (deferredPaletteHandle === null) {
+            return;
+        }
+        if (deferredPaletteType === "idle" && typeof window.cancelIdleCallback === "function") {
+            window.cancelIdleCallback(deferredPaletteHandle);
+        } else {
+            window.clearTimeout(deferredPaletteHandle);
+        }
+        deferredPaletteHandle = null;
+        deferredPaletteType = "";
+        deferredPaletteUrl = null;
+    }
+
+    function scheduleDeferredPaletteUpdate(imageUrl, options = {}) {
+        const immediate = Boolean(options.immediate);
+        if (!imageUrl) {
+            cancelDeferredPaletteUpdate();
+            if (immediate) {
+                resetDynamicBackground();
+            }
+            return;
+        }
+
+        if (immediate) {
+            cancelDeferredPaletteUpdate();
+            updateDynamicBackground(imageUrl);
+            return;
+        }
+
+        if (deferredPaletteHandle !== null) {
+            if (deferredPaletteType === "idle" && typeof window.cancelIdleCallback === "function") {
+                window.cancelIdleCallback(deferredPaletteHandle);
+            } else {
+                window.clearTimeout(deferredPaletteHandle);
+            }
+        }
+
+        deferredPaletteUrl = imageUrl;
+        const runner = () => {
+            deferredPaletteHandle = null;
+            deferredPaletteType = "";
+            const targetUrl = deferredPaletteUrl;
+            deferredPaletteUrl = null;
+            if (targetUrl) {
+                updateDynamicBackground(targetUrl);
+            }
+        };
+
+        if (typeof window.requestIdleCallback === "function") {
+            deferredPaletteType = "idle";
+            deferredPaletteHandle = window.requestIdleCallback(runner, { timeout: 800 });
+        } else {
+            deferredPaletteType = "timeout";
+            deferredPaletteHandle = window.setTimeout(runner, 120);
+        }
     }
 
     function attemptPaletteApplication() {
@@ -2402,10 +2564,10 @@
     function showSearchResults() {
         toggleSearchMode(true);
         if (state.sourceMenuOpen) {
-            requestAnimationFrame(updateSourceMenuPosition);
+            scheduleSourceMenuPositionUpdate();
         }
         if (state.qualityMenuOpen) {
-            requestAnimationFrame(updatePlayerQualityMenuPosition);
+            schedulePlayerQualityMenuPositionUpdate();
         }
     }
 
@@ -2413,13 +2575,14 @@
     function hideSearchResults() {
         toggleSearchMode(false);
         if (state.sourceMenuOpen) {
-            requestAnimationFrame(updateSourceMenuPosition);
+            scheduleSourceMenuPositionUpdate();
         }
         if (state.qualityMenuOpen) {
-            requestAnimationFrame(updatePlayerQualityMenuPosition);
+            schedulePlayerQualityMenuPositionUpdate();
         }
         // 立即清空搜索结果内容
         dom.searchResults.innerHTML = "";
+        state.renderedSearchCount = 0;
     }
 
     const playModeTexts = {
@@ -2632,7 +2795,7 @@
         }).join("");
         dom.sourceMenu.innerHTML = optionsHtml;
         if (state.sourceMenuOpen) {
-            requestAnimationFrame(updateSourceMenuPosition);
+            scheduleSourceMenuPositionUpdate();
         }
     }
 
@@ -2694,12 +2857,13 @@
     function openSourceMenu() {
         if (!dom.sourceMenu || !dom.sourceSelectButton) return;
         state.sourceMenuOpen = true;
+        ensureFloatingMenuListeners();
         buildSourceMenu();
         dom.sourceMenu.classList.add("show");
         dom.sourceSelectButton.classList.add("active");
         dom.sourceSelectButton.setAttribute("aria-expanded", "true");
         updateSourceMenuPosition();
-        requestAnimationFrame(updateSourceMenuPosition);
+        scheduleSourceMenuPositionUpdate();
     }
 
     function closeSourceMenu() {
@@ -2708,7 +2872,9 @@
         dom.sourceSelectButton.classList.remove("active");
         dom.sourceSelectButton.setAttribute("aria-expanded", "false");
         state.sourceMenuOpen = false;
+        cancelSourceMenuPositionUpdate();
         resetSourceMenuPosition();
+        releaseFloatingMenuListenersIfIdle();
     }
 
     function toggleSourceMenu(event) {
@@ -2758,7 +2924,7 @@
         }).join("");
         dom.playerQualityMenu.innerHTML = optionsHtml;
         if (state.qualityMenuOpen) {
-            requestAnimationFrame(updatePlayerQualityMenuPosition);
+            schedulePlayerQualityMenuPositionUpdate();
         }
     }
 
@@ -2837,11 +3003,22 @@
     function openPlayerQualityMenu() {
         if (!dom.playerQualityMenu || !dom.qualityToggle) return;
         state.qualityMenuOpen = true;
-        dom.playerQualityMenu.classList.add("floating");
-        dom.playerQualityMenu.classList.add("show");
+        ensureFloatingMenuListeners();
+        const menu = dom.playerQualityMenu;
         dom.qualityToggle.classList.add("active");
-        updatePlayerQualityMenuPosition();
-        requestAnimationFrame(updatePlayerQualityMenuPosition);
+        menu.classList.add("floating");
+        menu.classList.remove("show");
+
+        runWithoutTransition(menu, () => {
+            updatePlayerQualityMenuPosition();
+        });
+
+        requestAnimationFrame(() => {
+            if (!state.qualityMenuOpen) return;
+            menu.classList.add("show");
+        });
+
+        schedulePlayerQualityMenuPositionUpdate();
     }
 
     function closePlayerQualityMenu() {
@@ -2849,7 +3026,9 @@
         dom.playerQualityMenu.classList.remove("show");
         dom.qualityToggle.classList.remove("active");
         state.qualityMenuOpen = false;
+        cancelPlayerQualityMenuPositionUpdate();
         resetPlayerQualityMenuPosition();
+        releaseFloatingMenuListenersIfIdle();
     }
 
     function handlePlayerQualitySelection(event) {
@@ -2983,14 +3162,6 @@
             dom.sourceSelectButton.addEventListener("click", toggleSourceMenu);
             dom.sourceMenu.addEventListener("click", handleSourceSelection);
         }
-        window.addEventListener("resize", () => {
-            updateSourceMenuPosition();
-            updatePlayerQualityMenuPosition();
-        });
-        window.addEventListener("scroll", () => {
-            updateSourceMenuPosition();
-            updatePlayerQualityMenuPosition();
-        }, true);
         dom.qualityToggle.addEventListener("click", togglePlayerQualityMenu);
         dom.playerQualityMenu.addEventListener("click", handlePlayerQualitySelection);
 
@@ -3150,6 +3321,7 @@
 
         // 加载封面
         if (song.pic_id) {
+            cancelDeferredPaletteUpdate();
             dom.albumCover.classList.add("loading");
             const picUrl = API.getPicUrl(song);
 
@@ -3167,12 +3339,15 @@
                             return;
                         }
                         setAlbumCoverImage(imageUrl);
-                        updateDynamicBackground(imageUrl);
+                        const shouldApplyImmediately = paletteCache.has(imageUrl) ||
+                            (state.currentPaletteImage === imageUrl && state.dynamicPalette);
+                        scheduleDeferredPaletteUpdate(imageUrl, { immediate: shouldApplyImmediately });
                     };
                     img.onerror = () => {
                         if (state.currentSong !== song) {
                             return;
                         }
+                        cancelDeferredPaletteUpdate();
                         showAlbumCoverPlaceholder();
                     };
                     img.src = imageUrl;
@@ -3180,10 +3355,12 @@
                 .catch(error => {
                     console.error("加载封面失败:", error);
                     if (state.currentSong === song) {
+                        cancelDeferredPaletteUpdate();
                         showAlbumCoverPlaceholder();
                     }
                 });
         } else {
+            cancelDeferredPaletteUpdate();
             showAlbumCoverPlaceholder();
         }
 
@@ -3215,6 +3392,7 @@
             state.searchSource = source;
             state.searchResults = [];
             state.hasMoreResults = true;
+            state.renderedSearchCount = 0;
             debugLog(`开始新搜索: ${query}, 来源: ${source}`);
         } else {
             state.searchKeyword = query;
@@ -3239,11 +3417,14 @@
             } else {
                 state.searchResults = [...state.searchResults, ...results];
             }
-            
+
             state.hasMoreResults = results.length === 20;
-            
+
             // 显示搜索结果
-            displaySearchResults(state.searchResults);
+            displaySearchResults(results, {
+                reset: state.searchPage === 1,
+                totalCount: state.searchResults.length,
+            });
             debugLog(`搜索完成: 总共显示 ${state.searchResults.length} 个结果`);
             
             // 如果没有结果，显示提示
@@ -3291,7 +3472,9 @@
             if (results.length > 0) {
                 state.searchResults = [...state.searchResults, ...results];
                 state.hasMoreResults = results.length === 20;
-                displaySearchResults(state.searchResults);
+                displaySearchResults(results, {
+                    totalCount: state.searchResults.length,
+                });
                 debugLog(`加载完成: 新增 ${results.length} 个结果`);
             } else {
                 state.hasMoreResults = false;
@@ -3310,47 +3493,138 @@
         }
     }
     
-    function displaySearchResults(results) {
+    function createSearchResultItem(song, index) {
+        const item = document.createElement("div");
+        item.className = "search-result-item";
+        item.dataset.index = String(index);
+
+        const info = document.createElement("div");
+        info.className = "search-result-info";
+
+        const title = document.createElement("div");
+        title.className = "search-result-title";
+        title.textContent = song.name || "未知歌曲";
+
+        const artist = document.createElement("div");
+        artist.className = "search-result-artist";
+        const artistName = Array.isArray(song.artist)
+            ? song.artist.join(', ')
+            : (song.artist || "未知艺术家");
+        const albumText = song.album ? ` - ${song.album}` : "";
+        artist.textContent = `${artistName}${albumText}`;
+
+        info.appendChild(title);
+        info.appendChild(artist);
+
+        const actions = document.createElement("div");
+        actions.className = "search-result-actions";
+
+        const playButton = document.createElement("button");
+        playButton.className = "action-btn play";
+        playButton.type = "button";
+        playButton.title = "播放";
+        playButton.innerHTML = '<i class="fas fa-play"></i> 播放';
+        playButton.addEventListener("click", () => playSearchResult(index));
+
+        const downloadButton = document.createElement("button");
+        downloadButton.className = "action-btn download";
+        downloadButton.type = "button";
+        downloadButton.title = "下载";
+        downloadButton.innerHTML = '<i class="fas fa-download"></i>';
+        downloadButton.addEventListener("click", (event) => {
+            showQualityMenu(event, index, "search");
+        });
+
+        const qualityMenu = document.createElement("div");
+        qualityMenu.className = "quality-menu";
+
+        const qualityOptions = [
+            { label: "标准音质", suffix: " (128k)", quality: "128" },
+            { label: "高音质", suffix: " (192k)", quality: "192" },
+            { label: "超高音质", suffix: " (320k)", quality: "320" },
+            { label: "无损音质", suffix: "", quality: "999" },
+        ];
+
+        qualityOptions.forEach(option => {
+            const qualityItem = document.createElement("div");
+            qualityItem.className = "quality-option";
+            qualityItem.textContent = `${option.label}${option.suffix}`;
+            qualityItem.addEventListener("click", (event) => {
+                downloadWithQuality(event, index, "search", option.quality);
+            });
+            qualityMenu.appendChild(qualityItem);
+        });
+
+        downloadButton.appendChild(qualityMenu);
+
+        actions.appendChild(playButton);
+        actions.appendChild(downloadButton);
+
+        item.appendChild(info);
+        item.appendChild(actions);
+
+        return item;
+    }
+
+    function createLoadMoreButton() {
+        const button = document.createElement("button");
+        button.id = "loadMoreBtn";
+        button.className = "load-more-btn";
+        button.type = "button";
+        button.innerHTML = '<i class="fas fa-plus"></i><span>加载更多</span>';
+        button.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            loadMoreResults();
+        });
+        return button;
+    }
+
+    function displaySearchResults(newItems, options = {}) {
         dom.playlist.classList.remove("empty");
-        if (results.length === 0) {
-            dom.searchResults.innerHTML = "<div style=\"text-align: center; color: var(--text-secondary-color); padding: 20px;\">未找到相关歌曲</div>";
+        const container = dom.searchResults;
+        if (!container) {
             return;
         }
-        
-        const resultsHtml = results.map((song, index) => `
-            <div class="search-result-item" data-index="${index}">
-                <div class="search-result-info">
-                    <div class="search-result-title">${song.name}</div>
-                    <div class="search-result-artist">${Array.isArray(song.artist) ? song.artist.join(', ') : song.artist}${song.album ? " - " + song.album : ""}</div>
-                </div>
-                <div class="search-result-actions">
-                    <button class="action-btn play" onclick="playSearchResult(${index})" title="播放">
-                        <i class="fas fa-play"></i> 播放
-                    </button>
-                    <button class="action-btn download" onclick="showQualityMenu(event, ${index}, 'search')" title="下载">
-                        <i class="fas fa-download"></i>
-                        <div class="quality-menu">
-                            <div class="quality-option" onclick="downloadWithQuality(event, ${index}, 'search', '128')">标准音质 (128k)</div>
-                            <div class="quality-option" onclick="downloadWithQuality(event, ${index}, 'search', '192')">高音质 (192k)</div>
-                            <div class="quality-option" onclick="downloadWithQuality(event, ${index}, 'search', '320')">超高音质 (320k)</div>
-                            <div class="quality-option" onclick="downloadWithQuality(event, ${index}, 'search', '999')">无损音质</div>
-                        </div>
-                    </button>
-                </div>
-            </div>
-        `).join("");
-        
-        // 修复：改进加载更多按钮的生成和绑定
-        const loadMoreHtml = state.hasMoreResults ? `
-            <button id="loadMoreBtn" class="load-more-btn" onclick="loadMoreResults()">
-                <i class="fas fa-plus"></i>
-                <span>加载更多</span>
-            </button>
-        ` : "";
-        
-        dom.searchResults.innerHTML = resultsHtml + loadMoreHtml;
-        
-        debugLog(`显示搜索结果: ${results.length} 个结果, 加载更多按钮: ${state.hasMoreResults ? "显示" : "隐藏"}`);
+
+        const { reset = false, totalCount = state.searchResults.length } = options;
+
+        if (reset) {
+            container.innerHTML = "";
+            state.renderedSearchCount = 0;
+        }
+
+        const existingLoadMore = container.querySelector("#loadMoreBtn");
+        if (existingLoadMore) {
+            existingLoadMore.remove();
+        }
+
+        const itemsToAppend = Array.isArray(newItems) ? newItems : [];
+
+        if (itemsToAppend.length === 0 && state.renderedSearchCount === 0 && totalCount === 0) {
+            container.innerHTML = "<div style=\"text-align: center; color: var(--text-secondary-color); padding: 20px;\">未找到相关歌曲</div>";
+            state.renderedSearchCount = 0;
+            debugLog("显示搜索结果: 0 个结果, 无可用数据");
+            return;
+        }
+
+        if (itemsToAppend.length > 0) {
+            const fragment = document.createDocumentFragment();
+            const startIndex = state.renderedSearchCount;
+            itemsToAppend.forEach((song, offset) => {
+                fragment.appendChild(createSearchResultItem(song, startIndex + offset));
+            });
+            container.appendChild(fragment);
+            state.renderedSearchCount += itemsToAppend.length;
+        }
+
+        if (state.hasMoreResults) {
+            container.appendChild(createLoadMoreButton());
+        }
+
+        const appendedCount = itemsToAppend.length;
+        const totalRendered = state.renderedSearchCount;
+        debugLog(`显示搜索结果: 新增 ${appendedCount} 个结果, 总计 ${totalRendered} 个, 加载更多按钮: ${state.hasMoreResults ? "显示" : "隐藏"}`);
     }
 
     // 显示质量选择菜单

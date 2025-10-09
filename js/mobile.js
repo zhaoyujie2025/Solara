@@ -12,11 +12,10 @@
     let initialized = false;
 
     function updateMobileToolbarTitleImpl() {
-        if (!dom.mobileToolbarTitle || !dom.currentSongTitle) {
+        if (!dom.mobileToolbarTitle) {
             return;
         }
-        const titleText = dom.currentSongTitle.textContent.trim();
-        dom.mobileToolbarTitle.textContent = titleText || "Solara";
+        dom.mobileToolbarTitle.textContent = "Solara";
     }
 
     function updateMobileOverlayScrim() {
@@ -158,10 +157,6 @@
         if (dom.mobileOverlayScrim) {
             dom.mobileOverlayScrim.addEventListener("click", closeAllMobileOverlaysImpl);
         }
-        if (dom.mobileBackButton) {
-            dom.mobileBackButton.addEventListener("click", closeAllMobileOverlaysImpl);
-        }
-
         if (dom.searchArea) {
             dom.searchArea.setAttribute("aria-hidden", "true");
         }

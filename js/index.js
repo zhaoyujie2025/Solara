@@ -39,7 +39,7 @@ const dom = {
     mobileSearchClose: document.getElementById("mobileSearchClose"),
     mobilePanelClose: document.getElementById("mobilePanelClose"),
     mobileOverlayScrim: document.getElementById("mobileOverlayScrim"),
-    mobileBackButton: document.getElementById("mobileBackButton"),
+    mobileExploreButton: document.getElementById("mobileExploreButton"),
     mobileQualityToggle: document.getElementById("mobileQualityToggle"),
     mobileQualityLabel: document.getElementById("mobileQualityLabel"),
     mobilePanel: document.getElementById("mobilePanel"),
@@ -1614,21 +1614,33 @@ function setupInteractions() {
     dom.playerQualityMenu.addEventListener("click", handlePlayerQualitySelection);
 
     dom.loadOnlineBtn.addEventListener("click", exploreOnlineMusic);
+    if (dom.mobileExploreButton) {
+        dom.mobileExploreButton.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            closeAllMobileOverlays();
+            exploreOnlineMusic();
+        });
+    }
 
-    dom.showPlaylistBtn.addEventListener("click", () => {
-        if (isMobileView) {
-            openMobilePanel("playlist");
-        } else {
-            switchMobileView("playlist");
-        }
-    });
-    dom.showLyricsBtn.addEventListener("click", () => {
-        if (isMobileView) {
-            openMobilePanel("lyrics");
-        } else {
-            switchMobileView("lyrics");
-        }
-    });
+    if (dom.showPlaylistBtn) {
+        dom.showPlaylistBtn.addEventListener("click", () => {
+            if (isMobileView) {
+                openMobilePanel("playlist");
+            } else {
+                switchMobileView("playlist");
+            }
+        });
+    }
+    if (dom.showLyricsBtn) {
+        dom.showLyricsBtn.addEventListener("click", () => {
+            if (isMobileView) {
+                openMobilePanel("lyrics");
+            } else {
+                switchMobileView("lyrics");
+            }
+        });
+    }
 
     // 播放模式按钮事件
     updatePlayModeUI();
@@ -2920,13 +2932,21 @@ async function downloadSong(song, quality = "320") {
 // 修复：移动端视图切换
 function switchMobileView(view) {
     if (view === "playlist") {
-        dom.showPlaylistBtn.classList.add("active");
-        dom.showLyricsBtn.classList.remove("active");
+        if (dom.showPlaylistBtn) {
+            dom.showPlaylistBtn.classList.add("active");
+        }
+        if (dom.showLyricsBtn) {
+            dom.showLyricsBtn.classList.remove("active");
+        }
         dom.playlist.classList.add("active");
         dom.lyrics.classList.remove("active");
     } else if (view === "lyrics") {
-        dom.showLyricsBtn.classList.add("active");
-        dom.showPlaylistBtn.classList.remove("active");
+        if (dom.showLyricsBtn) {
+            dom.showLyricsBtn.classList.add("active");
+        }
+        if (dom.showPlaylistBtn) {
+            dom.showPlaylistBtn.classList.remove("active");
+        }
         dom.lyrics.classList.add("active");
         dom.playlist.classList.remove("active");
     }

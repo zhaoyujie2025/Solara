@@ -34,7 +34,7 @@ body.mobile-view .container {
     flex-direction: column;
     gap: clamp(12px, 4vw, 24px);
     position: relative;
-    overflow: hidden;
+    overflow: visible;
 }
 
 body.mobile-view .container::after {
@@ -101,6 +101,8 @@ body.mobile-view .main-content {
     flex-direction: column;
     gap: clamp(18px, 6vw, 32px);
     z-index: 1;
+    flex: 1 1 auto;
+    justify-content: space-between;
 }
 
 body.mobile-view .cover-area {
@@ -147,19 +149,6 @@ body.mobile-view .mobile-turntable__platter::before {
     pointer-events: none;
 }
 
-body.mobile-view .mobile-turntable__label {
-    display: block;
-    position: absolute;
-    inset: 50% auto auto 50%;
-    width: 14%;
-    aspect-ratio: 1 / 1;
-    transform: translate(-50%, -50%);
-    border-radius: 50%;
-    background: radial-gradient(circle at 50% 50%, rgba(245, 245, 245, 0.9) 0%, #b5b9c3 55%, #3d4048 100%);
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35), inset 0 0 8px rgba(0, 0, 0, 0.45);
-    z-index: 3;
-}
-
 body.mobile-view .album-cover {
     position: absolute;
     top: 50%;
@@ -186,16 +175,6 @@ body.mobile-view .album-cover img {
 body.mobile-view .album-cover .placeholder {
     font-size: clamp(36px, 12vw, 48px);
     color: rgba(255, 255, 255, 0.9);
-}
-
-body.mobile-view .album-cover::after {
-    content: "";
-    position: absolute;
-    inset: 18%;
-    border-radius: 50%;
-    box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.28), inset 0 0 0 2px rgba(255, 255, 255, 0.12);
-    background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08) 0%, rgba(0, 0, 0, 0.18) 65%, rgba(0, 0, 0, 0.28) 100%);
-    pointer-events: none;
 }
 
 body.mobile-view.is-playing .mobile-turntable__platter {
@@ -273,6 +252,7 @@ body.mobile-view .controls {
     padding: 0;
     gap: clamp(16px, 5vw, 24px);
     align-items: stretch;
+    margin-top: auto;
 }
 
 body.mobile-view .progress-container {
@@ -364,6 +344,10 @@ body.mobile-view .player-quality-btn {
     border-radius: 14px;
     padding: 8px 12px;
     font-size: 0.85rem;
+}
+
+body.mobile-view .player-quality-menu {
+    z-index: 240;
 }
 
 body.mobile-view .volume-container {
@@ -475,27 +459,6 @@ body.mobile-view .mobile-close-btn i {
     pointer-events: none;
 }
 
-body.mobile-view .view-toggle {
-    display: none;
-}
-
-body.mobile-view .view-toggle button {
-    border: none;
-    border-radius: 999px;
-    padding: 10px 0;
-    font-size: 0.95rem;
-    letter-spacing: 0.05em;
-    color: rgba(255, 255, 255, 0.68);
-    background: transparent;
-    transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
-}
-
-body.mobile-view .view-toggle button.active {
-    background: linear-gradient(135deg, #f36d6d 0%, #f3a25b 100%);
-    color: #1b1d24;
-    box-shadow: 0 12px 30px rgba(243, 109, 109, 0.35);
-}
-
 body.mobile-view .playlist,
 body.mobile-view .lyrics {
     display: none;
@@ -503,7 +466,7 @@ body.mobile-view .lyrics {
     background: transparent;
     border: none;
     padding: 0;
-    max-height: min(50vh, 360px);
+    max-height: min(60vh, 420px);
 }
 
 body.mobile-view .playlist.active,
@@ -513,11 +476,12 @@ body.mobile-view .lyrics.active {
 
 body.mobile-view .playlist-scroll,
 body.mobile-view .lyrics-scroll {
-    max-height: min(50vh, 340px);
+    max-height: min(60vh, 400px);
     padding-right: 6px;
     margin-right: -6px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    flex: 1 1 auto;
 }
 
 body.mobile-view .playlist-items .playlist-item {
@@ -526,6 +490,8 @@ body.mobile-view .playlist-items .playlist-item {
     margin-bottom: 6px;
     color: #f2f4f7;
     touch-action: manipulation;
+    cursor: pointer;
+    pointer-events: auto;
 }
 
 body.mobile-view .playlist-items .playlist-item:hover,
@@ -572,6 +538,7 @@ body.mobile-view .search-area {
     gap: 16px;
     opacity: 0;
     pointer-events: none;
+    align-items: center;
 }
 
 body.mobile-view.mobile-search-open .search-area {
@@ -582,14 +549,13 @@ body.mobile-view.mobile-search-open .search-area {
 
 body.mobile-view .search-area .mobile-close-btn {
     align-self: flex-end;
-    margin-right: clamp(18px, 6vw, 28px);
 }
 
 body.mobile-view .search-area .search-container,
 body.mobile-view .search-area .search-results {
-    max-width: min(420px, 100%);
-    margin: 0 auto;
+    max-width: min(360px, calc(100% - clamp(32px, 12vw, 72px)));
     width: 100%;
+    margin: 0 auto;
 }
 
 body.mobile-view .search-container {
@@ -643,11 +609,15 @@ body.mobile-view .search-results {
 body.mobile-view #notification {
     top: 18px;
     left: 50%;
-    transform: translate(-50%, -120%);
+    transform: translate(-50%, -200%);
+    opacity: 0;
+    pointer-events: none;
 }
 
 body.mobile-view #notification.show {
     transform: translate(-50%, 0);
+    opacity: 1;
+    pointer-events: auto;
 }
 
 body.mobile-view .debug-info {

@@ -1542,13 +1542,48 @@ function openPlayerQualityMenu(anchor) {
 
 function closePlayerQualityMenu() {
     if (!dom.playerQualityMenu) return;
-    dom.playerQualityMenu.classList.remove("show");
+    const menu = dom.playerQualityMenu;
+    const wasOpen = state.qualityMenuOpen || menu.classList.contains("show");
+
+    if (!wasOpen) {
+        resetPlayerQualityMenuPosition();
+        setQualityAnchorState(qualityMenuAnchor, false);
+        qualityMenuAnchor = null;
+        releaseFloatingMenuListenersIfIdle();
+        return;
+    }
+
+    const finalizeClose = () => {
+        if (finalizeClose._timeout) {
+            window.clearTimeout(finalizeClose._timeout);
+            finalizeClose._timeout = null;
+        }
+        menu.removeEventListener("transitionend", handleTransitionEnd);
+        if (state.qualityMenuOpen || menu.classList.contains("show")) {
+            return;
+        }
+        resetPlayerQualityMenuPosition();
+        releaseFloatingMenuListenersIfIdle();
+    };
+
+    const handleTransitionEnd = (event) => {
+        if (event.target !== menu) {
+            return;
+        }
+        if (event.propertyName && !["opacity", "transform"].includes(event.propertyName)) {
+            return;
+        }
+        finalizeClose();
+    };
+
+    menu.addEventListener("transitionend", handleTransitionEnd);
+    finalizeClose._timeout = window.setTimeout(finalizeClose, 250);
+
+    menu.classList.remove("show");
     state.qualityMenuOpen = false;
     cancelPlayerQualityMenuPositionUpdate();
-    resetPlayerQualityMenuPosition();
     setQualityAnchorState(qualityMenuAnchor, false);
     qualityMenuAnchor = null;
-    releaseFloatingMenuListenersIfIdle();
 }
 
 function handlePlayerQualitySelection(event) {

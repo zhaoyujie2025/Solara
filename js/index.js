@@ -2293,6 +2293,9 @@ async function playSearchResult(index) {
         // 立即隐藏搜索结果，显示播放界面
         hideSearchResults();
         dom.searchInput.value = "";
+        if (isMobileView) {
+            closeMobileSearch();
+        }
 
         // 检查歌曲是否已在播放列表中
         const existingIndex = state.playlistSongs.findIndex(s => s.id === song.id && s.source === song.source);
@@ -2472,6 +2475,9 @@ async function playPlaylistSong(index) {
     try {
         await playSong(song);
         updatePlaylistHighlight();
+        if (isMobileView) {
+            closeMobilePanel();
+        }
     } catch (error) {
         console.error("播放失败:", error);
         showNotification("播放失败，请稍后重试", "error");

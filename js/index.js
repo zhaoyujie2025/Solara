@@ -77,12 +77,64 @@ function updateMobileToolbarTitle() {
     return invokeMobileHook("updateToolbarTitle");
 }
 
+function runAfterOverlayFrame(callback) {
+    if (typeof callback !== "function" || !isMobileView) {
+        return;
+    }
+    const runner = () => {
+        if (!document.body) {
+            return;
+        }
+        callback();
+    };
+    if (typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(runner);
+    } else {
+        window.setTimeout(runner, 0);
+    }
+}
+
+function syncMobileOverlayVisibility() {
+    if (!isMobileView || !document.body) {
+        return;
+    }
+    const searchOpen = document.body.classList.contains("mobile-search-open");
+    const panelOpen = document.body.classList.contains("mobile-panel-open");
+    if (dom.searchArea) {
+        dom.searchArea.setAttribute("aria-hidden", searchOpen ? "false" : "true");
+    }
+    if (dom.mobileOverlayScrim) {
+        dom.mobileOverlayScrim.setAttribute("aria-hidden", (searchOpen || panelOpen) ? "false" : "true");
+    }
+}
+
+function forceCloseMobileSearchOverlay() {
+    if (!isMobileView || !document.body) {
+        return;
+    }
+    document.body.classList.remove("mobile-search-open");
+    if (dom.searchInput) {
+        dom.searchInput.blur();
+    }
+    syncMobileOverlayVisibility();
+}
+
+function forceCloseMobilePanelOverlay() {
+    if (!isMobileView || !document.body) {
+        return;
+    }
+    document.body.classList.remove("mobile-panel-open");
+    syncMobileOverlayVisibility();
+}
+
 function openMobileSearch() {
     return invokeMobileHook("openSearch");
 }
 
 function closeMobileSearch() {
-    return invokeMobileHook("closeSearch");
+    const result = invokeMobileHook("closeSearch");
+    runAfterOverlayFrame(forceCloseMobileSearchOverlay);
+    return result;
 }
 
 function toggleMobileSearch() {
@@ -94,7 +146,9 @@ function openMobilePanel(view = "playlist") {
 }
 
 function closeMobilePanel() {
-    return invokeMobileHook("closePanel");
+    const result = invokeMobileHook("closePanel");
+    runAfterOverlayFrame(forceCloseMobilePanelOverlay);
+    return result;
 }
 
 function toggleMobilePanel(view = "playlist") {
@@ -102,7 +156,12 @@ function toggleMobilePanel(view = "playlist") {
 }
 
 function closeAllMobileOverlays() {
-    return invokeMobileHook("closeAllOverlays");
+    const result = invokeMobileHook("closeAllOverlays");
+    runAfterOverlayFrame(() => {
+        forceCloseMobileSearchOverlay();
+        forceCloseMobilePanelOverlay();
+    });
+    return result;
 }
 
 const PLACEHOLDER_HTML = `<div class="placeholder"><i class="fas fa-music"></i></div>`;
@@ -1549,6 +1608,90 @@ window.addEventListener("load", setupInteractions);
 dom.audioPlayer.addEventListener("ended", autoPlayNext);
 
 function setupInteractions() {
+    function ensureQualityMenuPortal() {
+        if (!dom.playerQualityMenu || !document.body || !isMobileView) {
+            return;
+        }
+        const currentParent = dom.playerQualityMenu.parentElement;
+        if (!currentParent || currentParent === document.body) {
+            return;
+        }
+        currentParent.removeChild(dom.playerQualityMenu);
+        document.body.appendChild(dom.playerQualityMenu);
+    }
+
+    function initializePlaylistEventHandlers() {
+        if (!dom.playlistItems) {
+            return;
+        }
+
+        const activatePlaylistItem = (index) => {
+            if (typeof index !== "number" || Number.isNaN(index)) {
+                return;
+            }
+            playPlaylistSong(index);
+        };
+
+        const handlePlaylistAction = (event, actionButton) => {
+            const index = Number(actionButton.dataset.index);
+            if (Number.isNaN(index)) {
+                return;
+            }
+
+            const action = actionButton.dataset.playlistAction;
+            if (action === "remove") {
+                event.preventDefault();
+                event.stopPropagation();
+                removeFromPlaylist(index);
+            } else if (action === "download") {
+                event.preventDefault();
+                event.stopPropagation();
+                showQualityMenu(event, index, "playlist");
+            }
+        };
+
+        const handleClick = (event) => {
+            const actionButton = event.target.closest("[data-playlist-action]");
+            if (actionButton) {
+                handlePlaylistAction(event, actionButton);
+                return;
+            }
+            const item = event.target.closest(".playlist-item");
+            if (!item || !dom.playlistItems.contains(item)) {
+                return;
+            }
+
+            const index = Number(item.dataset.index);
+            if (Number.isNaN(index)) {
+                return;
+            }
+
+            activatePlaylistItem(index);
+        };
+
+        const handleKeydown = (event) => {
+            if (event.key !== "Enter" && event.key !== " ") {
+                return;
+            }
+            if (event.target.closest("[data-playlist-action]")) {
+                return;
+            }
+            const item = event.target.closest(".playlist-item");
+            if (!item || !dom.playlistItems.contains(item)) {
+                return;
+            }
+            const index = Number(item.dataset.index);
+            if (Number.isNaN(index)) {
+                return;
+            }
+            event.preventDefault();
+            activatePlaylistItem(index);
+        };
+
+        dom.playlistItems.addEventListener("click", handleClick);
+        dom.playlistItems.addEventListener("keydown", handleKeydown);
+    }
+
     function applyTheme(isDark) {
         if (!state.themeDefaultsCaptured) {
             captureThemeDefaults();
@@ -1581,6 +1724,8 @@ function setupInteractions() {
     buildSourceMenu();
     updateSourceLabel();
     buildQualityMenu();
+    ensureQualityMenuPortal();
+    initializePlaylistEventHandlers();
     updateQualityLabel();
     updatePlayPauseButton();
     dom.currentTimeDisplay.textContent = formatTime(state.currentPlaybackTime);
@@ -2207,6 +2352,9 @@ async function playSearchResult(index) {
         // 立即隐藏搜索结果，显示播放界面
         hideSearchResults();
         dom.searchInput.value = "";
+        if (isMobileView) {
+            closeMobileSearch();
+        }
 
         // 检查歌曲是否已在播放列表中
         const existingIndex = state.playlistSongs.findIndex(s => s.id === song.id && s.source === song.source);
@@ -2250,12 +2398,12 @@ function renderPlaylist() {
 
     dom.playlist.classList.remove("empty");
     const playlistHtml = state.playlistSongs.map((song, index) =>
-        `<div class="playlist-item" onclick="playPlaylistSong(${index})" data-index="${index}">
+        `<div class="playlist-item" data-index="${index}" role="button" tabindex="0" aria-label="播放 ${song.name}">
             ${song.name} - ${Array.isArray(song.artist) ? song.artist.join(", ") : song.artist}
-            <button class="playlist-item-remove" onclick="event.stopPropagation(); removeFromPlaylist(${index})" title="从播放列表移除">
+            <button class="playlist-item-remove" type="button" data-playlist-action="remove" data-index="${index}" title="从播放列表移除">
                 <i class="fas fa-times"></i>
             </button>
-            <button class="playlist-item-download" onclick="event.stopPropagation(); showQualityMenu(event, ${index}, 'playlist')" title="下载">
+            <button class="playlist-item-download" type="button" data-playlist-action="download" data-index="${index}" title="下载">
                 <i class="fas fa-download"></i>
             </button>
         </div>`
@@ -2386,6 +2534,9 @@ async function playPlaylistSong(index) {
     try {
         await playSong(song);
         updatePlaylistHighlight();
+        if (isMobileView) {
+            closeMobilePanel();
+        }
     } catch (error) {
         console.error("播放失败:", error);
         showNotification("播放失败，请稍后重试", "error");
@@ -2397,11 +2548,10 @@ function updatePlaylistHighlight() {
     if (!dom.playlistItems) return;
     const playlistItems = dom.playlistItems.querySelectorAll(".playlist-item");
     playlistItems.forEach((item, index) => {
-        if (state.currentPlaylist === "playlist" && index === state.currentTrackIndex) {
-            item.classList.add("current");
-        } else {
-            item.classList.remove("current");
-        }
+        const isCurrent = state.currentPlaylist === "playlist" && index === state.currentTrackIndex;
+        item.classList.toggle("current", isCurrent);
+        item.setAttribute("aria-current", isCurrent ? "true" : "false");
+        item.setAttribute("aria-pressed", isCurrent ? "true" : "false");
     });
 }
 

@@ -1573,7 +1573,23 @@ function updatePlayerQualityMenuPosition() {
         }
     }
 
-    let left = Math.round(toggleRect.right - menuWidth);
+    const isPortraitOrientation = (() => {
+        if (typeof window.matchMedia === "function") {
+            const portraitQuery = window.matchMedia("(orientation: portrait)");
+            if (typeof portraitQuery.matches === "boolean") {
+                return portraitQuery.matches;
+            }
+        }
+        return viewportHeight >= viewportWidth;
+    })();
+
+    let left;
+    if (isMobileView && isPortraitOrientation) {
+        left = Math.round(toggleRect.left + (toggleRect.width - menuWidth) / 2);
+    } else {
+        left = Math.round(toggleRect.right - menuWidth);
+    }
+
     const minLeft = spacing;
     const maxLeft = Math.max(minLeft, viewportWidth - spacing - menuWidth);
     left = Math.min(Math.max(left, minLeft), maxLeft);

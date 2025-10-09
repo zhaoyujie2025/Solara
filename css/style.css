@@ -948,6 +948,14 @@ body.background-transitioning .background-stage__layer--transition {
     gap: 12px;
 }
 
+html:not(.mobile-view) #playModeBtn {
+    margin-right: 8px;
+}
+
+#mobileQueueToggle {
+    display: none;
+}
+
 #playPauseBtn {
     width: 60px;
     height: 60px;

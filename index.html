@@ -44,28 +44,14 @@
         <div class="background-stage__layer background-stage__layer--transition" id="backgroundTransitionLayer"></div>
     </div>
     <div class="container" id="mainContainer">
-        <div class="mobile-status-bar" id="mobileStatusBar" aria-hidden="true">
-            <span class="mobile-clock" id="mobileClock">00:00</span>
-            <div class="mobile-status-icons">
-                <i class="fas fa-signal"></i>
-                <i class="fas fa-wifi"></i>
-                <i class="fas fa-battery-three-quarters"></i>
-            </div>
-        </div>
         <div class="mobile-toolbar" id="mobileToolbar" role="toolbar">
             <button class="mobile-toolbar__button" id="mobileBackButton" type="button" aria-label="收起面板">
                 <i class="fas fa-chevron-down" aria-hidden="true"></i>
             </button>
             <div class="mobile-toolbar__title" id="mobileToolbarTitle">Solara</div>
             <div class="mobile-toolbar__actions">
-                <button class="mobile-toolbar__button" id="mobileLyricsShortcut" type="button" aria-label="查看歌词">
-                    <i class="fas fa-align-left" aria-hidden="true"></i>
-                </button>
                 <button class="mobile-toolbar__button" id="mobileSearchToggle" type="button" aria-label="打开搜索">
                     <i class="fas fa-search" aria-hidden="true"></i>
-                </button>
-                <button class="mobile-toolbar__button" id="mobilePanelToggle" type="button" aria-label="打开播放列表">
-                    <i class="fas fa-bars" aria-hidden="true"></i>
                 </button>
             </div>
         </div>
@@ -112,12 +98,14 @@
                         </div>
                         <div class="mobile-turntable__label" aria-hidden="true"></div>
                     </div>
-                    <div class="mobile-turntable__tonearm" aria-hidden="true"></div>
                 </div>
                 <div class="current-song-info">
                     <div class="current-song-title" id="currentSongTitle">选择一首歌曲开始播放</div>
                     <div class="current-song-artist" id="currentSongArtist">未知艺术家</div>
-                    <div class="mobile-quality-chip" id="mobileQualityBadge">极高音质</div>
+                    <button class="mobile-quality-chip" id="mobileQualityToggle" type="button" aria-haspopup="menu" aria-expanded="false">
+                        <span id="mobileQualityLabel">极高音质</span>
+                        <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                    </button>
                 </div>
             </div>
 
@@ -151,15 +139,14 @@
         </div>
 
         <div class="controls">
-            <div class="play-mode-controls">
-                <button class="play-mode-btn" id="playModeBtn" title="播放模式">
+            <div class="transport-controls">
+                <button class="play-mode-btn transport-button transport-button--mode" id="playModeBtn" type="button" title="播放模式">
                     <i class="fas fa-repeat"></i>
                 </button>
-            </div>
-            <div class="transport-controls">
-                <button onclick="playPrevious()" title="上一曲"><i class="fas fa-backward-step"></i></button>
-                <button id="playPauseBtn" title="播放 / 暂停"><i class="fas fa-play"></i></button>
-                <button onclick="playNext()" title="下一曲"><i class="fas fa-forward-step"></i></button>
+                <button class="transport-button transport-button--prev" onclick="playPrevious()" type="button" title="上一曲"><i class="fas fa-backward-step"></i></button>
+                <button class="transport-button transport-button--play" id="playPauseBtn" type="button" title="播放 / 暂停"><i class="fas fa-play"></i></button>
+                <button class="transport-button transport-button--next" onclick="playNext()" type="button" title="下一曲"><i class="fas fa-forward-step"></i></button>
+                <button class="transport-button transport-button--queue" id="mobileQueueToggle" type="button" title="打开播放列表" aria-label="打开播放列表"><i class="fas fa-bars"></i></button>
             </div>
             <div class="progress-container">
                 <span id="currentTimeDisplay">00:00</span>

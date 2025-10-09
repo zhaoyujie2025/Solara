@@ -34,19 +34,17 @@ const dom = {
     qualityToggle: document.getElementById("qualityToggle"),
     playerQualityMenu: document.getElementById("playerQualityMenu"),
     qualityLabel: document.getElementById("qualityLabel"),
-    mobileStatusBar: document.getElementById("mobileStatusBar"),
-    mobileClock: document.getElementById("mobileClock"),
     mobileToolbarTitle: document.getElementById("mobileToolbarTitle"),
     mobileSearchToggle: document.getElementById("mobileSearchToggle"),
     mobileSearchClose: document.getElementById("mobileSearchClose"),
-    mobilePanelToggle: document.getElementById("mobilePanelToggle"),
     mobilePanelClose: document.getElementById("mobilePanelClose"),
     mobileOverlayScrim: document.getElementById("mobileOverlayScrim"),
-    mobileLyricsShortcut: document.getElementById("mobileLyricsShortcut"),
     mobileBackButton: document.getElementById("mobileBackButton"),
-    mobileQualityBadge: document.getElementById("mobileQualityBadge"),
+    mobileQualityToggle: document.getElementById("mobileQualityToggle"),
+    mobileQualityLabel: document.getElementById("mobileQualityLabel"),
     mobilePanel: document.getElementById("mobilePanel"),
     mobilePanelTitle: document.getElementById("mobilePanelTitle"),
+    mobileQueueToggle: document.getElementById("mobileQueueToggle"),
     searchArea: document.getElementById("searchArea"),
 };
 
@@ -443,6 +441,7 @@ const state = {
 let sourceMenuPositionFrame = null;
 let qualityMenuPositionFrame = null;
 let floatingMenuListenersAttached = false;
+let qualityMenuAnchor = null;
 
 function runWithoutTransition(element, callback) {
     if (!element || typeof callback !== "function") return;
@@ -1309,31 +1308,80 @@ function buildQualityMenu() {
     }
 }
 
+function isElementNode(value) {
+    return Boolean(value) && typeof value === "object" && value.nodeType === 1;
+}
+
+function resolveQualityAnchor(anchor) {
+    if (isElementNode(anchor)) {
+        return anchor;
+    }
+    if (isElementNode(dom.qualityToggle)) {
+        return dom.qualityToggle;
+    }
+    if (isElementNode(dom.mobileQualityToggle)) {
+        return dom.mobileQualityToggle;
+    }
+    return null;
+}
+
+function setQualityAnchorState(anchor, expanded) {
+    if (!isElementNode(anchor)) {
+        return;
+    }
+    anchor.classList.toggle("active", Boolean(expanded));
+    if (typeof anchor.setAttribute === "function") {
+        anchor.setAttribute("aria-expanded", expanded ? "true" : "false");
+    }
+}
+
+function getQualityMenuAnchor() {
+    if (isElementNode(qualityMenuAnchor) && (!document.body || document.body.contains(qualityMenuAnchor))) {
+        return qualityMenuAnchor;
+    }
+    const fallback = resolveQualityAnchor();
+    qualityMenuAnchor = fallback;
+    return fallback;
+}
+
 function updateQualityLabel() {
     const option = QUALITY_OPTIONS.find(item => item.value === state.playbackQuality) || QUALITY_OPTIONS[0];
     if (!option) return;
     dom.qualityLabel.textContent = option.label;
     dom.qualityToggle.title = `音质: ${option.label} (${option.description})`;
-    if (dom.mobileQualityBadge) {
-        dom.mobileQualityBadge.textContent = option.label;
+    if (dom.mobileQualityLabel) {
+        dom.mobileQualityLabel.textContent = option.label;
+    }
+    if (dom.mobileQualityToggle) {
+        dom.mobileQualityToggle.title = `音质: ${option.label} (${option.description})`;
     }
 }
 
 function togglePlayerQualityMenu(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (state.qualityMenuOpen) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    const anchor = resolveQualityAnchor(event && event.currentTarget ? event.currentTarget : qualityMenuAnchor);
+    if (!anchor) {
+        return;
+    }
+    if (state.qualityMenuOpen && qualityMenuAnchor === anchor) {
         closePlayerQualityMenu();
     } else {
-        openPlayerQualityMenu();
+        openPlayerQualityMenu(anchor);
     }
 }
 
 function updatePlayerQualityMenuPosition() {
-    if (!state.qualityMenuOpen || !dom.playerQualityMenu || !dom.qualityToggle) return;
+    if (!state.qualityMenuOpen || !dom.playerQualityMenu) return;
 
+    const anchor = getQualityMenuAnchor();
+    if (!isElementNode(anchor)) {
+        return;
+    }
     const menu = dom.playerQualityMenu;
-    const toggleRect = dom.qualityToggle.getBoundingClientRect();
+    const toggleRect = anchor.getBoundingClientRect();
     const viewportWidth = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
     const viewportHeight = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
     const spacing = 10;
@@ -1384,12 +1432,20 @@ function resetPlayerQualityMenuPosition() {
     dom.playerQualityMenu.style.width = "";
 }
 
-function openPlayerQualityMenu() {
-    if (!dom.playerQualityMenu || !dom.qualityToggle) return;
+function openPlayerQualityMenu(anchor) {
+    if (!dom.playerQualityMenu) return;
+    const targetAnchor = resolveQualityAnchor(anchor);
+    if (!targetAnchor) {
+        return;
+    }
+    if (qualityMenuAnchor && qualityMenuAnchor !== targetAnchor) {
+        setQualityAnchorState(qualityMenuAnchor, false);
+    }
+    qualityMenuAnchor = targetAnchor;
     state.qualityMenuOpen = true;
     ensureFloatingMenuListeners();
     const menu = dom.playerQualityMenu;
-    dom.qualityToggle.classList.add("active");
+    setQualityAnchorState(qualityMenuAnchor, true);
     menu.classList.add("floating");
     menu.classList.remove("show");
 
@@ -1408,10 +1464,11 @@ function openPlayerQualityMenu() {
 function closePlayerQualityMenu() {
     if (!dom.playerQualityMenu) return;
     dom.playerQualityMenu.classList.remove("show");
-    dom.qualityToggle.classList.remove("active");
     state.qualityMenuOpen = false;
     cancelPlayerQualityMenuPositionUpdate();
     resetPlayerQualityMenuPosition();
+    setQualityAnchorState(qualityMenuAnchor, false);
+    qualityMenuAnchor = null;
     releaseFloatingMenuListenersIfIdle();
 }
 
@@ -1547,6 +1604,13 @@ function setupInteractions() {
         dom.sourceMenu.addEventListener("click", handleSourceSelection);
     }
     dom.qualityToggle.addEventListener("click", togglePlayerQualityMenu);
+    if (dom.mobileQualityToggle) {
+        dom.mobileQualityToggle.addEventListener("click", togglePlayerQualityMenu);
+    }
+    setQualityAnchorState(dom.qualityToggle, false);
+    if (dom.mobileQualityToggle) {
+        setQualityAnchorState(dom.mobileQualityToggle, false);
+    }
     dom.playerQualityMenu.addEventListener("click", handlePlayerQualitySelection);
 
     dom.loadOnlineBtn.addEventListener("click", exploreOnlineMusic);
@@ -1618,8 +1682,12 @@ function setupInteractions() {
         });
 
         if (state.qualityMenuOpen &&
-            !dom.playerQualityMenu.contains(e.target) &&
-            !dom.qualityToggle.contains(e.target)) {
+            dom.playerQualityMenu &&
+            !dom.playerQualityMenu.contains(e.target)) {
+            const anchor = isElementNode(qualityMenuAnchor) ? qualityMenuAnchor : resolveQualityAnchor();
+            if (anchor && anchor.contains(e.target)) {
+                return;
+            }
             closePlayerQualityMenu();
         }
 

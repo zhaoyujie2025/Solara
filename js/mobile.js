@@ -9,18 +9,7 @@
     window.SolaraMobileBridge = bridge;
 
     const dom = window.SolaraDom || {};
-    let mobileClockTimer = null;
     let initialized = false;
-
-    function updateMobileClock() {
-        if (!dom.mobileClock) {
-            return;
-        }
-        const now = new Date();
-        const hours = String(now.getHours()).padStart(2, "0");
-        const minutes = String(now.getMinutes()).padStart(2, "0");
-        dom.mobileClock.textContent = `${hours}:${minutes}`;
-    }
 
     function updateMobileToolbarTitleImpl() {
         if (!dom.mobileToolbarTitle || !dom.currentSongTitle) {
@@ -85,18 +74,24 @@
         }
     }
 
+    function normalizePanelView(view) {
+        return view === "lyrics" ? "playlist" : (view || "playlist");
+    }
+
     function openMobilePanelImpl(view = "playlist") {
         if (!document.body) {
             return;
         }
+        const targetView = normalizePanelView(view);
         if (typeof window.switchMobileView === "function") {
-            window.switchMobileView(view);
+            window.switchMobileView(targetView);
         }
         document.body.classList.add("mobile-panel-open");
         document.body.classList.remove("mobile-search-open");
         if (dom.searchArea) {
             dom.searchArea.setAttribute("aria-hidden", "true");
         }
+        document.body.setAttribute("data-mobile-panel-view", targetView);
         updateMobileOverlayScrim();
     }
 
@@ -114,10 +109,11 @@
         }
         const isOpen = document.body.classList.contains("mobile-panel-open");
         const currentView = document.body.getAttribute("data-mobile-panel-view") || "playlist";
-        if (isOpen && (!view || currentView === view)) {
+        const targetView = normalizePanelView(view);
+        if (isOpen && (!targetView || currentView === targetView)) {
             closeMobilePanelImpl();
         } else {
-            openMobilePanelImpl(view || currentView || "playlist");
+            openMobilePanelImpl(targetView || currentView || "playlist");
         }
     }
 
@@ -133,18 +129,19 @@
         initialized = true;
 
         document.body.classList.add("mobile-view");
-        const initialView = dom.lyrics && dom.lyrics.classList.contains("active") ? "lyrics" : "playlist";
+        const initialView = "playlist";
         document.body.setAttribute("data-mobile-panel-view", initialView);
         if (dom.mobilePanelTitle) {
-            dom.mobilePanelTitle.textContent = initialView === "lyrics" ? "歌词" : "播放列表";
+            dom.mobilePanelTitle.textContent = "播放列表";
+        }
+        if (dom.lyrics) {
+            dom.lyrics.classList.remove("active");
+        }
+        if (dom.playlist) {
+            dom.playlist.classList.add("active");
         }
 
         updateMobileToolbarTitleImpl();
-        updateMobileClock();
-        if (mobileClockTimer !== null) {
-            window.clearInterval(mobileClockTimer);
-        }
-        mobileClockTimer = window.setInterval(updateMobileClock, 30000);
 
         if (dom.mobileSearchToggle) {
             dom.mobileSearchToggle.addEventListener("click", toggleMobileSearchImpl);
@@ -152,17 +149,14 @@
         if (dom.mobileSearchClose) {
             dom.mobileSearchClose.addEventListener("click", closeMobileSearchImpl);
         }
-        if (dom.mobilePanelToggle) {
-            dom.mobilePanelToggle.addEventListener("click", () => openMobilePanelImpl("playlist"));
-        }
         if (dom.mobilePanelClose) {
             dom.mobilePanelClose.addEventListener("click", closeMobilePanelImpl);
         }
+        if (dom.mobileQueueToggle) {
+            dom.mobileQueueToggle.addEventListener("click", () => openMobilePanelImpl("playlist"));
+        }
         if (dom.mobileOverlayScrim) {
             dom.mobileOverlayScrim.addEventListener("click", closeAllMobileOverlaysImpl);
-        }
-        if (dom.mobileLyricsShortcut) {
-            dom.mobileLyricsShortcut.addEventListener("click", () => openMobilePanelImpl("lyrics"));
         }
         if (dom.mobileBackButton) {
             dom.mobileBackButton.addEventListener("click", closeAllMobileOverlaysImpl);

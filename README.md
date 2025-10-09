@@ -3,6 +3,7 @@
 > 🌐 由轻量后端服务支撑的现代化网页音乐播放器，整合多种音乐聚合接口，覆盖搜索、播放、歌词同步与音频下载全流程。
 
 ![Review-ezgif com-optimize](https://github.com/user-attachments/assets/487157de-bf71-4bc9-9e49-16a4f0a14472)
+![ezgif com-optimize](https://github.com/user-attachments/assets/f662a79b-0276-433b-bd42-0bae283a88b8)
 
 
 ## 🌟 主要特性

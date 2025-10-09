@@ -1425,24 +1425,6 @@ input[type="range"]:active::-moz-range-thumb {
     display: none;
 }
 
-/* 新增：移动端结构在桌面端的默认表现 */
-/* Hide mobile specific chrome on desktop */
-.mobile-status-bar,
-.mobile-toolbar,
-.mobile-panel-header,
-.mobile-overlay-scrim,
-.mobile-quality-chip,
-.mobile-close-btn,
-.mobile-turntable__tonearm,
-.mobile-turntable__label {
-    display: none;
-}
-
-/* Prevent the "tap to show lyrics" overlay from appearing on desktop */
-.mobile-inline-lyrics {
-    display: none;
-}
-
 .mobile-panel {
     display: contents;
 }

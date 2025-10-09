@@ -25,9 +25,15 @@
             link.href = "css/mobile.css";
             link.id = "mobileStylesheet";
             document.head.appendChild(link);
+            const setViewportUnit = () => {
+                const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                document.documentElement.style.setProperty("--mobile-vh", `${viewportHeight}px`);
+            };
+
             const applyBodyClass = () => {
                 if (document.body) {
                     document.body.classList.add("mobile-view");
+                    setViewportUnit();
                 }
             };
             if (document.readyState === "loading") {
@@ -35,6 +41,15 @@
             } else {
                 applyBodyClass();
             }
+
+            window.addEventListener("resize", setViewportUnit);
+            window.addEventListener("orientationchange", setViewportUnit);
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener("resize", setViewportUnit);
+                window.visualViewport.addEventListener("scroll", setViewportUnit);
+            }
+
+            setViewportUnit();
         })();
     </script>
 </head>
@@ -112,9 +127,22 @@
                 <div class="mobile-panel-header" id="mobilePanelHeader">
                     <div class="mobile-panel-handle" aria-hidden="true"></div>
                     <div class="mobile-panel-title" id="mobilePanelTitle">播放列表</div>
-                    <button id="mobilePanelClose" class="mobile-close-btn" type="button" aria-label="收起播放面板">
-                        <i class="fas fa-chevron-down" aria-hidden="true"></i>
-                    </button>
+                    <div class="mobile-panel-actions">
+                        <button
+                            id="mobileClearPlaylistBtn"
+                            class="mobile-panel-action-btn mobile-panel-clear-btn"
+                            type="button"
+                            aria-label="清空播放列表"
+                            title="清空播放列表"
+                            onclick="clearPlaylist()"
+                            hidden
+                        >
+                            <i class="fas fa-trash" aria-hidden="true"></i>
+                        </button>
+                        <button id="mobilePanelClose" class="mobile-close-btn mobile-panel-action-btn" type="button" aria-label="收起播放面板">
+                            <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="playlist active empty" id="playlist">

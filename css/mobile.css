@@ -6,7 +6,7 @@ body.mobile-view {
     color: #f2f5f9;
     height: 100%;
     overflow: hidden;
-    touch-action: manipulation;
+    touch-action: pan-y;
     overscroll-behavior: none;
 }
 
@@ -407,9 +407,11 @@ body.mobile-view .mobile-panel {
     pointer-events: auto;
     box-shadow: 0 -28px 60px rgba(0, 0, 0, 0.6);
     transition: transform 0.45s cubic-bezier(0.33, 1, 0.68, 1);
+    height: calc(100dvh - clamp(120px, 34vw, 200px));
     max-height: calc(100dvh - clamp(120px, 34vw, 200px));
     overflow: hidden;
     overscroll-behavior: contain;
+    touch-action: pan-y;
 }
 
 body.mobile-view.mobile-panel-open .mobile-panel {
@@ -468,6 +470,7 @@ body.mobile-view .lyrics {
     padding: 0;
     max-height: none;
     flex: 1 1 auto;
+    min-height: 0;
 }
 
 body.mobile-view .playlist.active,
@@ -485,6 +488,7 @@ body.mobile-view .lyrics-scroll {
     flex: 1 1 auto;
     overscroll-behavior: contain;
     touch-action: pan-y;
+    min-height: 0;
 }
 
 body.mobile-view .playlist-items {
@@ -497,6 +501,11 @@ body.mobile-view .playlist-items .playlist-item {
     white-space: normal;
     line-height: 1.4;
     min-height: 52px;
+}
+
+body.mobile-view .playlist-items .playlist-item:focus-visible {
+    outline: 2px solid rgba(243, 162, 91, 0.85);
+    outline-offset: 2px;
 }
 
 body.mobile-view .playlist-items .playlist-item:hover {
@@ -573,6 +582,7 @@ body.mobile-view .search-area {
     opacity: 0;
     pointer-events: none;
     align-items: center;
+    justify-content: flex-start;
 }
 
 body.mobile-view.mobile-search-open .search-area {
@@ -591,6 +601,12 @@ body.mobile-view .search-area .search-results {
     max-width: 100%;
     margin: 0 auto;
     box-sizing: border-box;
+    align-self: center;
+}
+
+body.mobile-view .search-area > :not(.mobile-close-btn) {
+    width: min(100%, 360px);
+    align-self: center;
 }
 
 body.mobile-view .search-container {

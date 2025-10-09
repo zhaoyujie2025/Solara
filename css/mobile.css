@@ -599,6 +599,12 @@ body.mobile-view .search-area .search-container,
 body.mobile-view .search-area .search-results {
     width: min(100%, 340px);
     box-sizing: border-box;
+    align-self: center;
+}
+
+body.mobile-view .search-area > :not(.mobile-close-btn) {
+    width: min(100%, 360px);
+    align-self: center;
 }
 
 body.mobile-view .search-area > :not(.mobile-close-btn) {

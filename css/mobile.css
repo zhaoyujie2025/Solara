@@ -6,7 +6,7 @@ body.mobile-view {
     color: #f2f5f9;
     height: 100%;
     overflow: hidden;
-    touch-action: manipulation;
+    touch-action: pan-y;
     overscroll-behavior: none;
 }
 
@@ -381,13 +381,12 @@ body.mobile-view .mobile-overlay-scrim {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.35s ease;
-    z-index: 30;
+    z-index: 40;
 }
 
 body.mobile-view.mobile-search-open .mobile-overlay-scrim,
 body.mobile-view.mobile-panel-open .mobile-overlay-scrim {
     opacity: 1;
-    pointer-events: auto;
 }
 
 body.mobile-view .mobile-panel {
@@ -403,13 +402,15 @@ body.mobile-view .mobile-panel {
     display: flex;
     flex-direction: column;
     gap: 18px;
-    z-index: 120;
+    z-index: 400;
     pointer-events: auto;
     box-shadow: 0 -28px 60px rgba(0, 0, 0, 0.6);
     transition: transform 0.45s cubic-bezier(0.33, 1, 0.68, 1);
+    height: calc(100dvh - clamp(120px, 34vw, 200px));
     max-height: calc(100dvh - clamp(120px, 34vw, 200px));
     overflow: hidden;
     overscroll-behavior: contain;
+    touch-action: pan-y;
 }
 
 body.mobile-view.mobile-panel-open .mobile-panel {
@@ -468,6 +469,7 @@ body.mobile-view .lyrics {
     padding: 0;
     max-height: none;
     flex: 1 1 auto;
+    min-height: 0;
 }
 
 body.mobile-view .playlist.active,
@@ -485,6 +487,7 @@ body.mobile-view .lyrics-scroll {
     flex: 1 1 auto;
     overscroll-behavior: contain;
     touch-action: pan-y;
+    min-height: 0;
 }
 
 body.mobile-view .playlist-items {
@@ -497,6 +500,11 @@ body.mobile-view .playlist-items .playlist-item {
     white-space: normal;
     line-height: 1.4;
     min-height: 52px;
+}
+
+body.mobile-view .playlist-items .playlist-item:focus-visible {
+    outline: 2px solid rgba(243, 162, 91, 0.85);
+    outline-offset: 2px;
 }
 
 body.mobile-view .playlist-items .playlist-item:hover {
@@ -565,14 +573,16 @@ body.mobile-view .search-area {
     backdrop-filter: blur(26px);
     transform: translateY(-100%);
     transition: transform 0.45s cubic-bezier(0.33, 1, 0.68, 1);
-    z-index: 70;
+    z-index: 160;
     padding: calc(env(safe-area-inset-top) + 28px) clamp(18px, 6vw, 28px) clamp(env(safe-area-inset-bottom) + 24px, 8vw, 36px);
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     gap: 16px;
+    align-items: stretch;
+    justify-content: flex-start;
     opacity: 0;
     pointer-events: none;
-    align-items: center;
 }
 
 body.mobile-view.mobile-search-open .search-area {
@@ -587,10 +597,13 @@ body.mobile-view .search-area .mobile-close-btn {
 
 body.mobile-view .search-area .search-container,
 body.mobile-view .search-area .search-results {
-    width: min(100%, 360px);
-    max-width: 100%;
-    margin: 0 auto;
+    width: min(100%, 340px);
     box-sizing: border-box;
+}
+
+body.mobile-view .search-area > :not(.mobile-close-btn) {
+    width: min(100%, 340px);
+    align-self: center;
 }
 
 body.mobile-view .search-container {
@@ -638,7 +651,7 @@ body.mobile-view .search-results {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    width: min(100%, 360px);
+    width: min(100%, 340px);
     margin: 0 auto;
 }
 

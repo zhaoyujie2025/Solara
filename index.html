@@ -127,9 +127,22 @@
                 <div class="mobile-panel-header" id="mobilePanelHeader">
                     <div class="mobile-panel-handle" aria-hidden="true"></div>
                     <div class="mobile-panel-title" id="mobilePanelTitle">播放列表</div>
-                    <button id="mobilePanelClose" class="mobile-close-btn" type="button" aria-label="收起播放面板">
-                        <i class="fas fa-chevron-down" aria-hidden="true"></i>
-                    </button>
+                    <div class="mobile-panel-actions">
+                        <button
+                            id="mobileClearPlaylistBtn"
+                            class="mobile-panel-action-btn mobile-panel-clear-btn"
+                            type="button"
+                            aria-label="清空播放列表"
+                            title="清空播放列表"
+                            onclick="clearPlaylist()"
+                            hidden
+                        >
+                            <i class="fas fa-trash" aria-hidden="true"></i>
+                        </button>
+                        <button id="mobilePanelClose" class="mobile-close-btn mobile-panel-action-btn" type="button" aria-label="收起播放面板">
+                            <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="playlist active empty" id="playlist">

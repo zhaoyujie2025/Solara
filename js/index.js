@@ -38,6 +38,7 @@ const dom = {
     mobileSearchToggle: document.getElementById("mobileSearchToggle"),
     mobileSearchClose: document.getElementById("mobileSearchClose"),
     mobilePanelClose: document.getElementById("mobilePanelClose"),
+    mobileClearPlaylistBtn: document.getElementById("mobileClearPlaylistBtn"),
     mobileOverlayScrim: document.getElementById("mobileOverlayScrim"),
     mobileExploreButton: document.getElementById("mobileExploreButton"),
     mobileQualityToggle: document.getElementById("mobileQualityToggle"),
@@ -106,6 +107,25 @@ function syncMobileOverlayVisibility() {
     if (dom.mobileOverlayScrim) {
         dom.mobileOverlayScrim.setAttribute("aria-hidden", (searchOpen || panelOpen) ? "false" : "true");
     }
+}
+
+function updateMobileClearPlaylistVisibility() {
+    if (!isMobileView) {
+        return;
+    }
+    const button = dom.mobileClearPlaylistBtn;
+    if (!button) {
+        return;
+    }
+    const playlistElement = dom.playlist;
+    const body = document.body;
+    const currentView = body ? body.getAttribute("data-mobile-panel-view") : null;
+    const isPlaylistView = !body || !currentView || currentView === "playlist";
+    const playlistSongs = (typeof state !== "undefined" && Array.isArray(state.playlistSongs)) ? state.playlistSongs : [];
+    const isEmpty = playlistSongs.length === 0 || !playlistElement || playlistElement.classList.contains("empty");
+    const shouldShow = isPlaylistView && !isEmpty;
+    button.hidden = !shouldShow;
+    button.setAttribute("aria-hidden", shouldShow ? "false" : "true");
 }
 
 function forceCloseMobileSearchOverlay() {
@@ -1927,6 +1947,7 @@ function setupInteractions() {
         if (dom.playlistItems) {
             dom.playlistItems.innerHTML = "";
         }
+        updateMobileClearPlaylistVisibility();
     }
 
     if (state.currentSong) {
@@ -1935,6 +1956,7 @@ function setupInteractions() {
 
     if (isMobileView) {
         initializeMobileUI();
+        updateMobileClearPlaylistVisibility();
     }
 }
 
@@ -2393,6 +2415,7 @@ function renderPlaylist() {
         dom.playlistItems.innerHTML = "";
         savePlayerState();
         updatePlaylistHighlight();
+        updateMobileClearPlaylistVisibility();
         return;
     }
 
@@ -2412,6 +2435,7 @@ function renderPlaylist() {
     dom.playlistItems.innerHTML = playlistHtml;
     savePlayerState();
     updatePlaylistHighlight();
+    updateMobileClearPlaylistVisibility();
 }
 
 // 新增：从播放列表移除歌曲
@@ -2461,6 +2485,7 @@ function removeFromPlaylist(index) {
             dom.playlistItems.innerHTML = "";
         }
         state.currentPlaylist = "playlist";
+        updateMobileClearPlaylistVisibility();
     } else {
         if (state.currentPlaylist === "playlist" && state.currentTrackIndex < 0) {
             state.currentTrackIndex = 0;
@@ -2518,6 +2543,7 @@ function clearPlaylist() {
         dom.playlistItems.innerHTML = "";
     }
     state.currentPlaylist = "playlist";
+    updateMobileClearPlaylistVisibility();
 
     savePlayerState();
     showNotification("播放列表已清空", "success");
@@ -3105,6 +3131,7 @@ function switchMobileView(view) {
         if (dom.mobilePanelTitle) {
             dom.mobilePanelTitle.textContent = view === "lyrics" ? "歌词" : "播放列表";
         }
+        updateMobileClearPlaylistVisibility();
     }
 }
 

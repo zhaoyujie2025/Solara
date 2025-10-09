@@ -77,12 +77,64 @@ function updateMobileToolbarTitle() {
     return invokeMobileHook("updateToolbarTitle");
 }
 
+function runAfterOverlayFrame(callback) {
+    if (typeof callback !== "function" || !isMobileView) {
+        return;
+    }
+    const runner = () => {
+        if (!document.body) {
+            return;
+        }
+        callback();
+    };
+    if (typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(runner);
+    } else {
+        window.setTimeout(runner, 0);
+    }
+}
+
+function syncMobileOverlayVisibility() {
+    if (!isMobileView || !document.body) {
+        return;
+    }
+    const searchOpen = document.body.classList.contains("mobile-search-open");
+    const panelOpen = document.body.classList.contains("mobile-panel-open");
+    if (dom.searchArea) {
+        dom.searchArea.setAttribute("aria-hidden", searchOpen ? "false" : "true");
+    }
+    if (dom.mobileOverlayScrim) {
+        dom.mobileOverlayScrim.setAttribute("aria-hidden", (searchOpen || panelOpen) ? "false" : "true");
+    }
+}
+
+function forceCloseMobileSearchOverlay() {
+    if (!isMobileView || !document.body) {
+        return;
+    }
+    document.body.classList.remove("mobile-search-open");
+    if (dom.searchInput) {
+        dom.searchInput.blur();
+    }
+    syncMobileOverlayVisibility();
+}
+
+function forceCloseMobilePanelOverlay() {
+    if (!isMobileView || !document.body) {
+        return;
+    }
+    document.body.classList.remove("mobile-panel-open");
+    syncMobileOverlayVisibility();
+}
+
 function openMobileSearch() {
     return invokeMobileHook("openSearch");
 }
 
 function closeMobileSearch() {
-    return invokeMobileHook("closeSearch");
+    const result = invokeMobileHook("closeSearch");
+    runAfterOverlayFrame(forceCloseMobileSearchOverlay);
+    return result;
 }
 
 function toggleMobileSearch() {
@@ -94,7 +146,9 @@ function openMobilePanel(view = "playlist") {
 }
 
 function closeMobilePanel() {
-    return invokeMobileHook("closePanel");
+    const result = invokeMobileHook("closePanel");
+    runAfterOverlayFrame(forceCloseMobilePanelOverlay);
+    return result;
 }
 
 function toggleMobilePanel(view = "playlist") {
@@ -102,7 +156,12 @@ function toggleMobilePanel(view = "playlist") {
 }
 
 function closeAllMobileOverlays() {
-    return invokeMobileHook("closeAllOverlays");
+    const result = invokeMobileHook("closeAllOverlays");
+    runAfterOverlayFrame(() => {
+        forceCloseMobileSearchOverlay();
+        forceCloseMobilePanelOverlay();
+    });
+    return result;
 }
 
 const PLACEHOLDER_HTML = `<div class="placeholder"><i class="fas fa-music"></i></div>`;

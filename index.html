@@ -25,9 +25,15 @@
             link.href = "css/mobile.css";
             link.id = "mobileStylesheet";
             document.head.appendChild(link);
+            const setViewportUnit = () => {
+                const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                document.documentElement.style.setProperty("--mobile-vh", `${viewportHeight}px`);
+            };
+
             const applyBodyClass = () => {
                 if (document.body) {
                     document.body.classList.add("mobile-view");
+                    setViewportUnit();
                 }
             };
             if (document.readyState === "loading") {
@@ -35,6 +41,15 @@
             } else {
                 applyBodyClass();
             }
+
+            window.addEventListener("resize", setViewportUnit);
+            window.addEventListener("orientationchange", setViewportUnit);
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener("resize", setViewportUnit);
+                window.visualViewport.addEventListener("scroll", setViewportUnit);
+            }
+
+            setViewportUnit();
         })();
     </script>
 </head>

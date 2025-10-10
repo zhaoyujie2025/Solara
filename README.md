@@ -8,6 +8,10 @@
 | <img src="https://github.com/user-attachments/assets/54d1ed31-da1d-427f-ad11-66a26788c838" height="700"/> | <img src="https://github.com/user-attachments/assets/bb092569-0a7f-47f6-b7e9-c07ea56949cf" height="700"/> | <img src="https://github.com/user-attachments/assets/02b830e3-292f-4880-91f2-86ec818b877a" height="700"/> |
 
 
+## 🤝 参与贡献
+感谢 GD音乐台(music.gdstudio.xyz)提供的免费API
+
+感谢 来自Linux.do 牛就是牛@ufoo 大佬 https://linux.do/t/topic/942415提供的灵感
 
 
 ## 🌟 主要特性
@@ -66,10 +70,6 @@ Music-Player/
 ├── index.html   # 主界面、样式与业务逻辑
 └── README.md    # 项目说明
 ```
-
-## 🤝 参与贡献
-感谢 来自Linux.do 牛就是牛@ufoo 大佬 https://linux.do/t/topic/942415提供的灵感
-感谢 GD音乐台(music.gdstudio.xyz)提供的免费API
 
 ## 📄 许可证
 本项目采用 CC BY-NC-SA 协议，禁止任何商业化行为，任何衍生项目必须保留本项目地址并以相同协议开源。

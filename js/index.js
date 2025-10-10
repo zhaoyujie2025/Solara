@@ -523,36 +523,41 @@ const API = {
         }
     },
 
-    getList: async (keyword = "热门", count = 100, pages = 1) => {
-        const source = "netease";
+    getRadarPlaylist: async (playlistId = "3778678", options = {}) => {
         const signature = API.generateSignature();
-        const url = `${API.baseUrl}?types=search&source=${source}&name=${encodeURIComponent(keyword)}&count=${count}&pages=${pages}&s=${signature}`;
 
-        try {
-            const data = await API.fetchJson(url);
-            if (!Array.isArray(data) || data.length === 0) throw new Error("No songs found");
-            return data.map(song => ({
-                id: song.id,
-                name: song.name,
-                artist: song.artist, // 修复：使用正确的字段名
-                source: song.source,
-                lyric_id: song.lyric_id,
-                pic_id: song.pic_id,
-            }));
-        } catch (error) {
-            console.error("API request failed:", error);
-            throw error;
+        let limit = 50;
+        let offset = 0;
+
+        if (typeof options === "number") {
+            limit = options;
+        } else if (options && typeof options === "object") {
+            if (Number.isFinite(options.limit)) {
+                limit = options.limit;
+            } else if (Number.isFinite(options.count)) {
+                limit = options.count;
+            }
+            if (Number.isFinite(options.offset)) {
+                offset = options.offset;
+            }
         }
-    },
 
-    getRadarPlaylist: async (playlistId = "3778678", count = 50) => {
-        const signature = API.generateSignature();
-        const url = `${API.baseUrl}?types=playlist&id=${playlistId}&count=${count}&s=${signature}`;
+        limit = Math.max(1, Math.min(200, Math.trunc(limit)) || 50);
+        offset = Math.max(0, Math.trunc(offset) || 0);
+
+        const params = new URLSearchParams({
+            types: "playlist",
+            id: playlistId,
+            limit: String(limit),
+            offset: String(offset),
+            s: signature,
+        });
+        const url = `${API.baseUrl}?${params.toString()}`;
 
         try {
             const data = await API.fetchJson(url);
             const tracks = data && data.playlist && Array.isArray(data.playlist.tracks)
-                ? data.playlist.tracks.slice(0, count)
+                ? data.playlist.tracks.slice(0, limit)
                 : [];
 
             if (tracks.length === 0) throw new Error("No tracks found");
@@ -3105,7 +3110,7 @@ async function exploreOnlineMusic() {
         btnText.style.display = "none";
         loader.style.display = "inline-block";
 
-        const songs = await API.getRadarPlaylist("3778678", 50);
+        const songs = await API.getRadarPlaylist("3778678", { limit: 50, offset: 0 });
 
         if (songs.length > 0) {
             // 将在线音乐添加到统一播放列表

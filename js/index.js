@@ -808,13 +808,39 @@ function applyDynamicGradient(options = {}) {
     applyThemeTokens(defaults);
 
     const palette = state.dynamicPalette;
-    if (palette && palette.gradients && palette.gradients[mode]) {
-        const gradientInfo = palette.gradients[mode];
+    if (palette && palette.gradients) {
+        const gradients = palette.gradients;
+        let gradientMode = mode;
+        let gradientInfo = gradients[gradientMode] || null;
+
+        if (!gradientInfo) {
+            const fallbackModes = gradientMode === "dark" ? ["light"] : ["dark"];
+            for (const candidate of fallbackModes) {
+                if (gradients[candidate]) {
+                    gradientMode = candidate;
+                    gradientInfo = gradients[candidate];
+                    break;
+                }
+            }
+            if (!gradientInfo) {
+                const availableModes = Object.keys(gradients);
+                if (availableModes.length) {
+                    const candidate = availableModes[0];
+                    gradientMode = candidate;
+                    gradientInfo = gradients[candidate];
+                }
+            }
+        }
+
         if (gradientInfo && gradientInfo.gradient) {
             targetGradient = gradientInfo.gradient;
         }
-        if (palette.tokens && palette.tokens[mode]) {
-            applyThemeTokens(palette.tokens[mode]);
+
+        if (palette.tokens) {
+            const tokens = palette.tokens[gradientMode] || palette.tokens[mode];
+            if (tokens) {
+                applyThemeTokens(tokens);
+            }
         }
     }
 

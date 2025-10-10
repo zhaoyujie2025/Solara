@@ -68,8 +68,8 @@ Music-Player/
 ```
 
 ## 🤝 参与贡献
-最基础的版本来自Linux.do 牛就是牛@ufoo 大佬 https://linux.do/t/topic/942415
-致谢 感谢提供灵感和API接口
+感谢 来自Linux.do 牛就是牛@ufoo 大佬 https://linux.do/t/topic/942415提供的灵感
+感谢 GD音乐台(music.gdstudio.xyz)提供的免费API
 
 ## 📄 许可证
 本项目采用 CC BY-NC-SA 协议，禁止任何商业化行为，任何衍生项目必须保留本项目地址并以相同协议开源。

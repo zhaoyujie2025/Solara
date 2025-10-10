@@ -26,20 +26,15 @@
 - 🛠️ 调试控制台：按下 Ctrl + D 呼出实时日志面板，便于排查接口或交互异常。
 
 ## 🚀 快速上手
+> ⚠️ 项目完全依赖 Cloudflare Pages Functions，目前仅支持部署到 Cloudflare Pages 环境运行。
+
 1. 📦 克隆仓库
    ```bash
    git clone https://github.com/akudamatata/Music-Player.git
    cd Music-Player
    ```
-2. 🖥️ 启动任意静态服务器
-   - 使用 VS Code Live Server 扩展
-   - 或执行 Python 简易服务器：
-     ```bash
-     python3 -m http.server 8080
-     ```
-3. 🌍 打开浏览器访问 `http://localhost:8080/index.html`，即可体验播放器。
-
-> 💡 由于浏览器同源策略限制，直接双击 index.html 可能产生跨域请求错误，建议通过本地服务器访问。
+2. ☁️ 按照 Cloudflare Pages 文档创建站点，并将本仓库作为构建来源或直接上传静态资源。
+3. 🚀 部署完成后，通过 Cloudflare Pages 分配的域名访问站点即可体验播放器。
 
 ## ☁️ 后端部署
 1. Fork 或克隆本仓库到你自己的 Cloudflare Pages 项目。

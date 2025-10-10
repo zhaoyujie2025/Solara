@@ -6,13 +6,14 @@
 <p align="center">
   <img src="https://github.com/user-attachments/assets/54d1ed31-da1d-427f-ad11-66a26788c838" width="30%" />
   <img src="https://github.com/user-attachments/assets/fc24e992-04b4-45f3-96b2-365a6d946631" width="30%" />
-  <img src="https://github.com/user-attachments/assets/b4be091c-3ba8-4ab7-a7ca-f3510f9df389" width="30%" />
+  <img src="https://github.com/user-attachments/assets/02b830e3-292f-4880-91f2-86ec818b877a" width="30%" />
 </p>
 
 
 
 
 ## 🌟 主要特性
+
 - 🔍 跨站曲库检索：一键切换数据源，支持分页浏览并批量导入播放队列。
 - 📻 队列管理灵活：新增、删除、清空操作即时生效，并自动持久化到浏览器 localStorage。
 - 🔁 丰富的播放模式：列表循环、单曲循环与随机播放随手切换，记忆上次偏好。

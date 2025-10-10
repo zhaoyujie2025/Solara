@@ -524,7 +524,7 @@ const API = {
     },
 
     getList: async (keyword = "热门", count = 100, pages = 1) => {
-        const source = "netease,kuwo";
+        const source = "netease";
         const signature = API.generateSignature();
         const url = `${API.baseUrl}?types=search&source=${source}&name=${encodeURIComponent(keyword)}&count=${count}&pages=${pages}&s=${signature}`;
 

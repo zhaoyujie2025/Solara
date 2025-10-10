@@ -735,8 +735,29 @@ function releaseFloatingMenuListenersIfIdle() {
 state.currentGradient = getComputedStyle(document.documentElement)
     .getPropertyValue("--bg-gradient")
     .trim();
+
+function setGlobalThemeProperty(name, value) {
+    if (typeof name !== "string") {
+        return;
+    }
+    document.documentElement.style.setProperty(name, value);
+    if (document.body) {
+        document.body.style.setProperty(name, value);
+    }
+}
+
+function removeGlobalThemeProperty(name) {
+    if (typeof name !== "string") {
+        return;
+    }
+    document.documentElement.style.removeProperty(name);
+    if (document.body) {
+        document.body.style.removeProperty(name);
+    }
+}
+
 if (state.currentGradient) {
-    document.documentElement.style.setProperty("--bg-gradient-next", state.currentGradient);
+    setGlobalThemeProperty("--bg-gradient-next", state.currentGradient);
 }
 
 function captureThemeDefaults() {
@@ -767,10 +788,10 @@ function captureThemeDefaults() {
 function applyThemeTokens(tokens) {
     if (!tokens) return;
     if (tokens.primaryColor) {
-        document.documentElement.style.setProperty("--primary-color", tokens.primaryColor);
+        setGlobalThemeProperty("--primary-color", tokens.primaryColor);
     }
     if (tokens.primaryColorDark) {
-        document.documentElement.style.setProperty("--primary-color-dark", tokens.primaryColorDark);
+        setGlobalThemeProperty("--primary-color-dark", tokens.primaryColorDark);
     }
 }
 
@@ -781,11 +802,11 @@ function setDocumentGradient(gradient, { immediate = false } = {}) {
 
     if (!dom.backgroundTransitionLayer || !dom.backgroundBaseLayer) {
         if (normalized) {
-            document.documentElement.style.setProperty("--bg-gradient", normalized);
-            document.documentElement.style.setProperty("--bg-gradient-next", normalized);
+            setGlobalThemeProperty("--bg-gradient", normalized);
+            setGlobalThemeProperty("--bg-gradient-next", normalized);
         } else {
-            document.documentElement.style.removeProperty("--bg-gradient");
-            document.documentElement.style.removeProperty("--bg-gradient-next");
+            removeGlobalThemeProperty("--bg-gradient");
+            removeGlobalThemeProperty("--bg-gradient-next");
         }
         state.currentGradient = normalized;
         return;
@@ -795,11 +816,11 @@ function setDocumentGradient(gradient, { immediate = false } = {}) {
 
     if (shouldSkipTransition) {
         if (normalized) {
-            document.documentElement.style.setProperty("--bg-gradient", normalized);
-            document.documentElement.style.setProperty("--bg-gradient-next", normalized);
+            setGlobalThemeProperty("--bg-gradient", normalized);
+            setGlobalThemeProperty("--bg-gradient-next", normalized);
         } else {
-            document.documentElement.style.removeProperty("--bg-gradient");
-            document.documentElement.style.removeProperty("--bg-gradient-next");
+            removeGlobalThemeProperty("--bg-gradient");
+            removeGlobalThemeProperty("--bg-gradient-next");
         }
         document.body.classList.remove("background-transitioning");
         state.currentGradient = normalized;
@@ -807,20 +828,20 @@ function setDocumentGradient(gradient, { immediate = false } = {}) {
     }
 
     if (normalized) {
-        document.documentElement.style.setProperty("--bg-gradient-next", normalized);
+        setGlobalThemeProperty("--bg-gradient-next", normalized);
     } else {
-        document.documentElement.style.removeProperty("--bg-gradient-next");
+        removeGlobalThemeProperty("--bg-gradient-next");
     }
 
     requestAnimationFrame(() => {
         document.body.classList.add("background-transitioning");
         backgroundTransitionTimer = window.setTimeout(() => {
             if (normalized) {
-                document.documentElement.style.setProperty("--bg-gradient", normalized);
-                document.documentElement.style.setProperty("--bg-gradient-next", normalized);
+                setGlobalThemeProperty("--bg-gradient", normalized);
+                setGlobalThemeProperty("--bg-gradient-next", normalized);
             } else {
-                document.documentElement.style.removeProperty("--bg-gradient");
-                document.documentElement.style.removeProperty("--bg-gradient-next");
+                removeGlobalThemeProperty("--bg-gradient");
+                removeGlobalThemeProperty("--bg-gradient-next");
             }
             document.body.classList.remove("background-transitioning");
             state.currentGradient = normalized;

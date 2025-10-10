@@ -3,11 +3,9 @@
 > 🌐 由轻量后端服务支撑的现代化网页音乐播放器，整合多种音乐聚合接口，覆盖搜索、播放、歌词同步与音频下载全流程。
 
 ![Review-ezgif com-optimize](https://github.com/user-attachments/assets/487157de-bf71-4bc9-9e49-16a4f0a14472)
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/54d1ed31-da1d-427f-ad11-66a26788c838" height="1450" />
-  <img src="https://github.com/user-attachments/assets/bb092569-0a7f-47f6-b7e9-c07ea56949cf" height="1450" />
-  <img src="https://github.com/user-attachments/assets/02b830e3-292f-4880-91f2-86ec818b877a" height="1450" />
-</p>
+| | | |
+|:--:|:--:|:--:|
+| <img src="https://github.com/user-attachments/assets/54d1ed31-da1d-427f-ad11-66a26788c838" height="700"/> | <img src="https://github.com/user-attachments/assets/bb092569-0a7f-47f6-b7e9-c07ea56949cf" height="700"/> | <img src="https://github.com/user-attachments/assets/02b830e3-292f-4880-91f2-86ec818b877a" height="700"/> |
 
 
 

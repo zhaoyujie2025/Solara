@@ -545,6 +545,32 @@ const API = {
         }
     },
 
+    getRadarPlaylist: async (playlistId = "3778678", count = 50) => {
+        const signature = API.generateSignature();
+        const url = `${API.baseUrl}?types=playlist&id=${playlistId}&count=${count}&s=${signature}`;
+
+        try {
+            const data = await API.fetchJson(url);
+            const tracks = data && data.playlist && Array.isArray(data.playlist.tracks)
+                ? data.playlist.tracks.slice(0, count)
+                : [];
+
+            if (tracks.length === 0) throw new Error("No tracks found");
+
+            return tracks.map(track => ({
+                id: track.id,
+                name: track.name,
+                artist: Array.isArray(track.ar) ? track.ar.map(artist => artist.name).join(" / ") : "",
+                source: "netease",
+                lyric_id: track.id,
+                pic_id: track.al?.pic_str || track.al?.pic || track.al?.picUrl || "",
+            }));
+        } catch (error) {
+            console.error("API request failed:", error);
+            throw error;
+        }
+    },
+
     getSongUrl: (song, quality = "320") => {
         const signature = API.generateSignature();
         return `${API.baseUrl}?types=url&id=${song.id}&source=${song.source || "netease"}&br=${quality}&s=${signature}`;
@@ -3079,7 +3105,7 @@ async function exploreOnlineMusic() {
         btnText.style.display = "none";
         loader.style.display = "inline-block";
 
-        const songs = await API.getList("热门", 50, 1);
+        const songs = await API.getRadarPlaylist("3778678", 50);
 
         if (songs.length > 0) {
             // 将在线音乐添加到统一播放列表
@@ -3089,8 +3115,8 @@ async function exploreOnlineMusic() {
             // 更新播放列表显示
             renderPlaylist();
 
-            showNotification(`已加载 ${songs.length} 首热门歌曲到播放列表`);
-            debugLog(`加载在线音乐成功: ${songs.length} 首歌曲`);
+            showNotification(`已加载 ${songs.length} 首探索雷达歌曲到播放列表`);
+            debugLog(`加载探索雷达播放列表成功: ${songs.length} 首歌曲`);
         } else {
             showNotification("未找到在线音乐", "error");
         }

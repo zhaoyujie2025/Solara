@@ -464,7 +464,6 @@ const savedCurrentPlaylist = (() => {
 
 // API配置 - 修复API地址和请求方式
 const API = {
-    name: "GD Studio API",
     baseUrl: "/proxy",
 
     generateSignature: () => {
@@ -591,6 +590,8 @@ const API = {
         return `${API.baseUrl}?types=pic&id=${song.pic_id}&source=${song.source || "netease"}&size=300&s=${signature}`;
     }
 };
+
+Object.freeze(API);
 
 const state = {
     onlineSongs: [],

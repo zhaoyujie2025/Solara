@@ -623,7 +623,7 @@ body.background-transitioning .background-stage__layer--transition {
     overflow: hidden;
 }
 
-.playlist {
+.playlist { 
     grid-area: playlist;
     background: var(--component-bg);
     border-radius: 16px;
@@ -636,6 +636,33 @@ body.background-transitioning .background-stage__layer--transition {
     position: relative;
     height: 100%;
     box-sizing: border-box;
+}
+
+.playlist-label {
+    position: absolute;
+    top: 16px;
+    left: 20px;
+    color: var(--text-secondary-color);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    line-height: 1.2;
+    display: none;
+    pointer-events: none;
+}
+
+html.desktop-view .playlist-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+html.desktop-view body.dark-mode .playlist-label {
+    color: var(--text-color);
+}
+
+html.mobile-view .playlist-label {
+    display: none;
 }
 
 /* 当播放列表有内容时，调整布局 */

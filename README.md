@@ -5,7 +5,7 @@
 ![Review-ezgif com-optimize](https://github.com/user-attachments/assets/487157de-bf71-4bc9-9e49-16a4f0a14472)
 <p align="center">
   <img src="https://github.com/user-attachments/assets/54d1ed31-da1d-427f-ad11-66a26788c838" width="30%" />
-  <img src="https://github.com/user-attachments/assets/fc24e992-04b4-45f3-96b2-365a6d946631" width="30%" />
+  <img src="https://github.com/user-attachments/assets/bb092569-0a7f-47f6-b7e9-c07ea56949cf" width="30%" />
   <img src="https://github.com/user-attachments/assets/02b830e3-292f-4880-91f2-86ec818b877a" width="30%" />
 </p>
 

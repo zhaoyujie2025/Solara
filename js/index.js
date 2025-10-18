@@ -653,6 +653,23 @@ const state = {
     if (!('mediaSession' in navigator) || !audio) return;
 
     let handlersBound = false;
+    let lastPositionUpdateTime = 0;
+    const MEDIA_SESSION_ENDED_FLAG = '__solaraMediaSessionHandledEnded';
+
+    function triggerMediaSessionMetadataRefresh() {
+        let refreshed = false;
+        if (typeof window.__SOLARA_UPDATE_MEDIA_METADATA === 'function') {
+            try {
+                window.__SOLARA_UPDATE_MEDIA_METADATA();
+                refreshed = true;
+            } catch (error) {
+                console.warn('刷新媒体信息失败:', error);
+            }
+        }
+        if (!refreshed) {
+            updateMediaMetadata();
+        }
+    }
 
     function getArtworkMime(url) {
         if (!url) {
@@ -682,11 +699,14 @@ const state = {
         // iOS/Safari 建议多尺寸封面；你的 API 已有 pic_id -> pic url（300），这里做兜底多尺寸
         // 注意：尽量提供 https 链接；你的项目里已有 preferHttpsUrl/buildAudioProxyUrl 工具函数
         const src = (typeof preferHttpsUrl === 'function') ? preferHttpsUrl(url) : (url || '');
-        // 如果没有封面，用站点 favicon 兜底
+        // 如果没有封面，用默认封面兜底
         const fallback = '/favicon.png';
-        const base = toAbsoluteUrl(src || fallback);
+        const baseSrc = src || fallback;
+        const base = toAbsoluteUrl(baseSrc);
         const type = getArtworkMime(base);
         return [
+            { src: base, sizes: '1024x1024', type },
+            { src: base, sizes: '640x640', type },
             { src: base, sizes: '512x512', type },
             { src: base, sizes: '384x384', type },
             { src: base, sizes: '256x256', type },
@@ -727,6 +747,24 @@ const state = {
         navigator.mediaSession.setPositionState({ duration, position, playbackRate });
     }
 
+    ['currentSong', 'currentArtworkUrl'].forEach((key) => {
+        if (!Object.prototype.hasOwnProperty.call(state, key)) {
+            return;
+        }
+        let internalValue = state[key];
+        Object.defineProperty(state, key, {
+            configurable: true,
+            enumerable: true,
+            get() {
+                return internalValue;
+            },
+            set(nextValue) {
+                internalValue = nextValue;
+                triggerMediaSessionMetadataRefresh();
+            }
+        });
+    });
+
     function bindActionHandlersOnce() {
         if (handlersBound) return;
         handlersBound = true;
@@ -735,10 +773,24 @@ const state = {
         try {
             navigator.mediaSession.setActionHandler('previoustrack', () => {
                 // 直接复用你已有的全局函数（HTML 里也在用）:contentReference[oaicite:9]{index=9}
-                if (typeof window.playPrevious === 'function') window.playPrevious();
+                if (typeof window.playPrevious === 'function') {
+                    const result = window.playPrevious();
+                    if (result && typeof result.then === 'function') {
+                        result.finally(triggerMediaSessionMetadataRefresh);
+                    } else {
+                        triggerMediaSessionMetadataRefresh();
+                    }
+                }
             });
             navigator.mediaSession.setActionHandler('nexttrack', () => {
-                if (typeof window.playNext === 'function') window.playNext();
+                if (typeof window.playNext === 'function') {
+                    const result = window.playNext();
+                    if (result && typeof result.then === 'function') {
+                        result.finally(triggerMediaSessionMetadataRefresh);
+                    } else {
+                        triggerMediaSessionMetadataRefresh();
+                    }
+                }
             });
 
             navigator.mediaSession.setActionHandler('seekbackward', null);
@@ -766,24 +818,30 @@ const state = {
 
     // 监听 audio 事件，同步锁屏信息与进度
     audio.addEventListener('loadedmetadata', () => {
-        updateMediaMetadata();
+        triggerMediaSessionMetadataRefresh();
         updatePositionState();
+        lastPositionUpdateTime = Date.now();
         bindActionHandlersOnce();
     });
 
     audio.addEventListener('play', () => {
         navigator.mediaSession.playbackState = 'playing';
         updatePositionState();
+        lastPositionUpdateTime = Date.now();
     });
 
     audio.addEventListener('pause', () => {
         navigator.mediaSession.playbackState = 'paused';
         updatePositionState();
+        lastPositionUpdateTime = Date.now();
     });
 
     audio.addEventListener('timeupdate', () => {
-        // 频率很高，避免过度调用；这里轻量直接调一次
-        updatePositionState();
+        const now = Date.now();
+        if (now - lastPositionUpdateTime >= 1000) {
+            lastPositionUpdateTime = now;
+            updatePositionState();
+        }
     });
 
     audio.addEventListener('durationchange', updatePositionState);
@@ -791,10 +849,52 @@ const state = {
     audio.addEventListener('seeking', updatePositionState);
     audio.addEventListener('seeked', updatePositionState);
 
+    audio.addEventListener('ended', () => {
+        navigator.mediaSession.playbackState = 'paused';
+        updatePositionState();
+        const refresh = () => {
+            triggerMediaSessionMetadataRefresh();
+            audio[MEDIA_SESSION_ENDED_FLAG] = false;
+        };
+        if (typeof autoPlayNext === 'function') {
+            try {
+                audio[MEDIA_SESSION_ENDED_FLAG] = 'handling';
+                autoPlayNext();
+                audio[MEDIA_SESSION_ENDED_FLAG] = 'skip';
+                Promise.resolve().then(refresh);
+                return;
+            } catch (error) {
+                console.warn('自动播放下一首失败:', error);
+            }
+        }
+        audio[MEDIA_SESSION_ENDED_FLAG] = 'skip';
+        if (typeof window.playNext === 'function') {
+            try {
+                const result = window.playNext();
+                if (typeof updatePlayPauseButton === 'function') {
+                    updatePlayPauseButton();
+                }
+                if (result && typeof result.then === 'function') {
+                    result.finally(refresh);
+                } else {
+                    Promise.resolve().then(refresh);
+                }
+                return;
+            } catch (error) {
+                console.warn('自动播放下一首失败:', error);
+            }
+        }
+        refresh();
+    });
+
     // 当你在应用内切歌（更新 state.currentSong / 封面 / 标题）时，也调用一次：
     // window.__SOLARA_UPDATE_MEDIA_METADATA = updateMediaMetadata;
     // 这样在你现有的切歌逻辑里，设置完新的 audio.src 后手动调用它可立即更新锁屏封面/文案。
-    window.__SOLARA_UPDATE_MEDIA_METADATA = updateMediaMetadata;
+    if (typeof window.__SOLARA_UPDATE_MEDIA_METADATA !== 'function') {
+        window.__SOLARA_UPDATE_MEDIA_METADATA = updateMediaMetadata;
+    }
+
+    triggerMediaSessionMetadataRefresh();
 })();
 
 let sourceMenuPositionFrame = null;
@@ -3196,6 +3296,10 @@ function scheduleDeferredSongAssets(song, playPromise) {
 
 // 修复：自动播放下一首 - 支持播放模式
 function autoPlayNext() {
+    if (dom.audioPlayer && dom.audioPlayer.__solaraMediaSessionHandledEnded === 'skip') {
+        dom.audioPlayer.__solaraMediaSessionHandledEnded = false;
+        return;
+    }
     if (state.playMode === "single") {
         // 单曲循环
         dom.audioPlayer.currentTime = 0;

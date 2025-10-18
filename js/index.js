@@ -27,6 +27,10 @@ const dom = {
     currentSongTitle: document.getElementById("currentSongTitle"),
     currentSongArtist: document.getElementById("currentSongArtist"),
     debugInfo: document.getElementById("debugInfo"),
+    importPlaylistBtn: document.getElementById("importPlaylistBtn"),
+    exportPlaylistBtn: document.getElementById("exportPlaylistBtn"),
+    importPlaylistInput: document.getElementById("importPlaylistInput"),
+    clearPlaylistBtn: document.getElementById("clearPlaylistBtn"),
     playModeBtn: document.getElementById("playModeBtn"),
     playPauseBtn: document.getElementById("playPauseBtn"),
     progressBar: document.getElementById("progressBar"),
@@ -429,6 +433,8 @@ const savedPlaylistSongs = (() => {
     const playlist = parseJSON(stored, []);
     return Array.isArray(playlist) ? playlist : [];
 })();
+
+const PLAYLIST_EXPORT_VERSION = 1;
 
 const savedCurrentTrackIndex = (() => {
     const stored = safeGetLocalStorage("currentTrackIndex");
@@ -2292,6 +2298,18 @@ function setupInteractions() {
         });
     }
 
+    if (dom.importPlaylistBtn && dom.importPlaylistInput) {
+        dom.importPlaylistBtn.addEventListener("click", () => {
+            dom.importPlaylistInput.value = "";
+            dom.importPlaylistInput.click();
+        });
+        dom.importPlaylistInput.addEventListener("change", handleImportPlaylistChange);
+    }
+
+    if (dom.exportPlaylistBtn) {
+        dom.exportPlaylistBtn.addEventListener("click", exportPlaylist);
+    }
+
     if (dom.showPlaylistBtn) {
         dom.showPlaylistBtn.addEventListener("click", () => {
             if (isMobileView) {
@@ -2431,6 +2449,8 @@ function setupInteractions() {
 
     attachLyricScrollHandler(dom.lyricsScroll, () => dom.lyricsContent?.querySelector(".current"));
     attachLyricScrollHandler(dom.mobileInlineLyricsScroll, () => dom.mobileInlineLyricsContent?.querySelector(".current"));
+
+    updatePlaylistActionStates();
 
     if (state.playlistSongs.length > 0) {
         let restoredIndex = state.currentTrackIndex;
@@ -2924,6 +2944,294 @@ async function playSearchResult(index) {
     }
 }
 
+function resolveSongId(song) {
+    if (!song || typeof song !== "object") {
+        return null;
+    }
+    const candidates = [
+        "id",
+        "songId",
+        "songid",
+        "songmid",
+        "mid",
+        "hash",
+        "sid",
+        "rid",
+        "trackId"
+    ];
+    for (const key of candidates) {
+        if (Object.prototype.hasOwnProperty.call(song, key)) {
+            const value = song[key];
+            if (typeof value === "number" && Number.isFinite(value)) {
+                return String(value);
+            }
+            if (typeof value === "string" && value.trim() !== "") {
+                return value.trim();
+            }
+        }
+    }
+    return null;
+}
+
+function normalizeArtistValue(value) {
+    if (Array.isArray(value)) {
+        const names = value.map((item) => {
+            if (typeof item === "string") {
+                return item.trim();
+            }
+            if (item && typeof item === "object" && typeof item.name === "string") {
+                return item.name.trim();
+            }
+            return "";
+        }).filter(Boolean);
+        if (names.length === 0) {
+            return undefined;
+        }
+        if (names.length === 1) {
+            return names[0];
+        }
+        return names;
+    }
+    if (value && typeof value === "object" && typeof value.name === "string") {
+        const name = value.name.trim();
+        return name || undefined;
+    }
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        return trimmed || undefined;
+    }
+    return undefined;
+}
+
+function getSongKey(song) {
+    if (!song || typeof song !== "object") {
+        return null;
+    }
+    const source = typeof song.source === "string" && song.source.trim() !== ""
+        ? song.source.trim().toLowerCase()
+        : (typeof song.platform === "string" && song.platform.trim() !== ""
+            ? song.platform.trim().toLowerCase()
+            : "netease");
+    const id = resolveSongId(song);
+    if (id) {
+        return `${source}:${id}`;
+    }
+    const name = typeof song.name === "string" ? song.name.trim().toLowerCase() : "";
+    if (!name) {
+        return null;
+    }
+    const artistValue = song.artist ?? song.artists ?? song.singers ?? song.singer;
+    let artistText = "";
+    if (Array.isArray(artistValue)) {
+        artistText = artistValue.map((item) => {
+            if (typeof item === "string") {
+                return item.trim().toLowerCase();
+            }
+            if (item && typeof item === "object" && typeof item.name === "string") {
+                return item.name.trim().toLowerCase();
+            }
+            return "";
+        }).filter(Boolean).join(",");
+    } else if (artistValue && typeof artistValue === "object" && typeof artistValue.name === "string") {
+        artistText = artistValue.name.trim().toLowerCase();
+    } else if (typeof artistValue === "string") {
+        artistText = artistValue.trim().toLowerCase();
+    }
+    return `${source}:${name}::${artistText}`;
+}
+
+function sanitizeImportedSong(rawSong) {
+    if (!rawSong || typeof rawSong !== "object") {
+        return null;
+    }
+    const name = typeof rawSong.name === "string" ? rawSong.name.trim() : "";
+    if (!name) {
+        return null;
+    }
+
+    const normalized = { ...rawSong, name };
+    const sourceCandidate = rawSong.source || rawSong.platform || rawSong.provider || rawSong.vendor;
+    normalized.source = typeof sourceCandidate === "string" && sourceCandidate.trim() !== ""
+        ? sourceCandidate.trim()
+        : "netease";
+
+    const resolvedId = resolveSongId(rawSong);
+    if (resolvedId) {
+        normalized.id = resolvedId;
+    }
+
+    const artistValue = rawSong.artist ?? rawSong.artists ?? rawSong.singers ?? rawSong.singer;
+    const normalizedArtist = normalizeArtistValue(artistValue);
+    if (normalizedArtist !== undefined) {
+        normalized.artist = normalizedArtist;
+    }
+
+    if (normalized.album && typeof normalized.album === "object" && typeof normalized.album.name === "string") {
+        normalized.album = normalized.album.name.trim();
+    }
+
+    return normalized;
+}
+
+function extractPlaylistItems(payload) {
+    if (Array.isArray(payload)) {
+        return payload;
+    }
+    if (payload && typeof payload === "object") {
+        const possibleKeys = ["items", "songs", "playlist", "tracks", "data"];
+        for (const key of possibleKeys) {
+            if (Array.isArray(payload[key])) {
+                return payload[key];
+            }
+        }
+    }
+    return [];
+}
+
+function updatePlaylistActionStates() {
+    const hasSongs = Array.isArray(state.playlistSongs) && state.playlistSongs.length > 0;
+    if (dom.exportPlaylistBtn) {
+        dom.exportPlaylistBtn.disabled = !hasSongs;
+        dom.exportPlaylistBtn.setAttribute("aria-disabled", hasSongs ? "false" : "true");
+    }
+    if (dom.clearPlaylistBtn) {
+        dom.clearPlaylistBtn.disabled = !hasSongs;
+        dom.clearPlaylistBtn.setAttribute("aria-disabled", hasSongs ? "false" : "true");
+    }
+}
+
+function exportPlaylist() {
+    if (!Array.isArray(state.playlistSongs) || state.playlistSongs.length === 0) {
+        showNotification("播放列表为空，无法导出", "warning");
+        return;
+    }
+
+    try {
+        const payload = {
+            meta: {
+                app: "Solara",
+                version: PLAYLIST_EXPORT_VERSION,
+                exportedAt: new Date().toISOString(),
+                itemCount: state.playlistSongs.length
+            },
+            items: state.playlistSongs
+        };
+
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const now = new Date();
+        const formattedTimestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(now.getSeconds()).padStart(2, "0")}`;
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = `solara-playlist-${formattedTimestamp}.json`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
+        showNotification(`已导出 ${state.playlistSongs.length} 首歌曲`, "success");
+    } catch (error) {
+        console.error("导出播放列表失败:", error);
+        showNotification("导出失败，请稍后重试", "error");
+    }
+}
+
+function handleImportedPlaylistItems(rawItems) {
+    if (!Array.isArray(state.playlistSongs)) {
+        state.playlistSongs = [];
+    }
+
+    const sanitizedSongs = rawItems
+        .map(sanitizeImportedSong)
+        .filter((song) => song && typeof song === "object");
+
+    if (sanitizedSongs.length === 0) {
+        throw new Error("NO_VALID_SONGS");
+    }
+
+    const existingKeys = new Set(
+        state.playlistSongs
+            .map(getSongKey)
+            .filter((key) => typeof key === "string" && key !== "")
+    );
+
+    let added = 0;
+    let duplicates = 0;
+
+    sanitizedSongs.forEach((song) => {
+        const key = getSongKey(song);
+        if (key && existingKeys.has(key)) {
+            duplicates++;
+            return;
+        }
+        state.playlistSongs.push(song);
+        if (key) {
+            existingKeys.add(key);
+        }
+        added++;
+    });
+
+    if (added > 0) {
+        renderPlaylist();
+    } else {
+        updatePlaylistActionStates();
+    }
+
+    return { added, duplicates };
+}
+
+function handleImportPlaylistChange(event) {
+    const input = event?.target;
+    const file = input?.files?.[0];
+    if (!file) {
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            const text = typeof reader.result === "string" ? reader.result : "";
+            if (!text) {
+                throw new Error("EMPTY_FILE");
+            }
+
+            const payload = parseJSON(text, null);
+            if (!payload) {
+                throw new Error("INVALID_JSON");
+            }
+
+            const items = extractPlaylistItems(payload);
+            if (!Array.isArray(items) || items.length === 0) {
+                throw new Error("NO_SONGS");
+            }
+
+            const { added, duplicates } = handleImportedPlaylistItems(items);
+            if (added > 0) {
+                const duplicateHint = duplicates > 0 ? `，${duplicates} 首已存在` : "";
+                showNotification(`成功导入 ${added} 首歌曲${duplicateHint}`, "success");
+            } else {
+                showNotification("文件中的歌曲已在播放列表中", "warning");
+            }
+        } catch (error) {
+            console.error("导入播放列表失败:", error);
+            showNotification("导入失败，请确认文件格式", "error");
+        } finally {
+            if (input) {
+                input.value = "";
+            }
+        }
+    };
+
+    reader.onerror = () => {
+        console.error("读取播放列表文件失败:", reader.error);
+        showNotification("无法读取播放列表文件", "error");
+        if (input) {
+            input.value = "";
+        }
+    };
+
+    reader.readAsText(file, "utf-8");
+}
+
 // 新增：渲染统一播放列表
 function renderPlaylist() {
     if (!dom.playlistItems) return;
@@ -2934,6 +3242,7 @@ function renderPlaylist() {
         savePlayerState();
         updatePlaylistHighlight();
         updateMobileClearPlaylistVisibility();
+        updatePlaylistActionStates();
         return;
     }
 
@@ -2954,6 +3263,7 @@ function renderPlaylist() {
     savePlayerState();
     updatePlaylistHighlight();
     updateMobileClearPlaylistVisibility();
+    updatePlaylistActionStates();
 }
 
 // 新增：从播放列表移除歌曲
@@ -3018,6 +3328,7 @@ function removeFromPlaylist(index) {
         }
     }
 
+    updatePlaylistActionStates();
     savePlayerState();
     showNotification("已从播放列表移除", "success");
 }
@@ -3058,6 +3369,7 @@ function clearPlaylist() {
     }
     state.currentPlaylist = "playlist";
     updateMobileClearPlaylistVisibility();
+    updatePlaylistActionStates();
 
     savePlayerState();
     showNotification("播放列表已清空", "success");

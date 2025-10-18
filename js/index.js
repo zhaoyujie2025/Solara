@@ -31,6 +31,8 @@ const dom = {
     exportPlaylistBtn: document.getElementById("exportPlaylistBtn"),
     importPlaylistInput: document.getElementById("importPlaylistInput"),
     clearPlaylistBtn: document.getElementById("clearPlaylistBtn"),
+    mobileImportPlaylistBtn: document.getElementById("mobileImportPlaylistBtn"),
+    mobileExportPlaylistBtn: document.getElementById("mobileExportPlaylistBtn"),
     playModeBtn: document.getElementById("playModeBtn"),
     playPauseBtn: document.getElementById("playPauseBtn"),
     progressBar: document.getElementById("progressBar"),
@@ -2310,6 +2312,17 @@ function setupInteractions() {
         dom.exportPlaylistBtn.addEventListener("click", exportPlaylist);
     }
 
+    if (dom.mobileImportPlaylistBtn && dom.importPlaylistInput) {
+        dom.mobileImportPlaylistBtn.addEventListener("click", () => {
+            dom.importPlaylistInput.value = "";
+            dom.importPlaylistInput.click();
+        });
+    }
+
+    if (dom.mobileExportPlaylistBtn) {
+        dom.mobileExportPlaylistBtn.addEventListener("click", exportPlaylist);
+    }
+
     if (dom.showPlaylistBtn) {
         dom.showPlaylistBtn.addEventListener("click", () => {
             if (isMobileView) {
@@ -3094,9 +3107,17 @@ function updatePlaylistActionStates() {
         dom.exportPlaylistBtn.disabled = !hasSongs;
         dom.exportPlaylistBtn.setAttribute("aria-disabled", hasSongs ? "false" : "true");
     }
+    if (dom.mobileExportPlaylistBtn) {
+        dom.mobileExportPlaylistBtn.disabled = !hasSongs;
+        dom.mobileExportPlaylistBtn.setAttribute("aria-disabled", hasSongs ? "false" : "true");
+    }
     if (dom.clearPlaylistBtn) {
         dom.clearPlaylistBtn.disabled = !hasSongs;
         dom.clearPlaylistBtn.setAttribute("aria-disabled", hasSongs ? "false" : "true");
+    }
+    if (dom.mobileClearPlaylistBtn) {
+        dom.mobileClearPlaylistBtn.disabled = !hasSongs;
+        dom.mobileClearPlaylistBtn.setAttribute("aria-disabled", hasSongs ? "false" : "true");
     }
 }
 

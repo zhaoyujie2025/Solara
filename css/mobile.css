@@ -636,6 +636,12 @@ body.mobile-view .mobile-close-btn:focus-visible {
     outline-offset: 2px;
 }
 
+body.mobile-view .mobile-panel-action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 body.mobile-view .mobile-panel-clear-btn {
     color: rgba(255, 255, 255, 0.9);
     border-color: rgba(255, 255, 255, 0.2);

@@ -74,7 +74,11 @@ html.desktop-view .search-results-toolbar {
 
 html.desktop-view .search-results-toolbar .import-selected-btn {
     position: absolute;
-    top: 0;
-    right: 0;
+    top: 16px;
+    right: 20px;
     pointer-events: auto;
+}
+
+html.desktop-view .search-results-list {
+    padding-top: 60px;
 }

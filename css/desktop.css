@@ -58,3 +58,27 @@ html.desktop-view .playlist-action-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
 }
+
+/* Keep the desktop search import button visible without an opaque bar */
+html.desktop-view .search-results {
+    gap: 0;
+}
+
+html.desktop-view .search-results-toolbar {
+    display: block;
+    padding: 0;
+    height: 0;
+    overflow: visible;
+    pointer-events: none;
+}
+
+html.desktop-view .search-results-toolbar .import-selected-btn {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    pointer-events: auto;
+}
+
+html.desktop-view .search-results-list {
+    padding-top: 60px;
+}

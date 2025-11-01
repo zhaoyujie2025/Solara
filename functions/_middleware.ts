@@ -48,8 +48,13 @@ export async function onRequest(context: any) {
   const cookieHeader = request.headers.get("Cookie") || "";
   const cookies: Record<string, string> = {};
   cookieHeader.split(";").forEach((part) => {
-    const [key, value] = part.trim().split("=");
-    if (key && value) {
+    const separatorIndex = part.indexOf("=");
+    if (separatorIndex === -1) {
+      return;
+    }
+    const key = part.slice(0, separatorIndex).trim();
+    const value = part.slice(separatorIndex + 1).trim();
+    if (key) {
       cookies[key] = value;
     }
   });

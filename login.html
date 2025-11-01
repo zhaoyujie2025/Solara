@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="login-page-root">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -92,14 +92,29 @@
       --login-scale: 1;
     }
 
-    body {
+    html.login-page-root {
+      min-height: var(--mobile-vh, 100dvh);
+      height: auto;
+    }
+
+    html.login-page-root,
+    body.login-page {
+      overflow-x: hidden;
+    }
+
+    html.login-page-root.mobile-view {
+      height: auto;
+      overflow-y: auto;
+    }
+
+    body.login-page {
       position: relative;
       margin: 0;
       padding: clamp(16px, 4vw, 40px);
       font-family: 'Noto Sans SC', 'Segoe UI', Arial, sans-serif;
       display: flex;
-      justify-content: center;
-      align-items: center;
+      justify-content: center !important;
+      align-items: center !important;
       min-height: var(--mobile-vh, 100dvh);
       color: var(--text-color);
       background: radial-gradient(circle at 20% 20%, rgba(26, 188, 156, 0.35), transparent 55%),
@@ -110,24 +125,29 @@
     }
 
     body.login-page.mobile-view {
-      position: relative;
+      position: static;
       inset: auto;
       width: auto;
       height: auto;
       min-height: var(--mobile-vh, 100dvh);
-      padding: clamp(18px, 6vw, 40px);
+      padding: calc(env(safe-area-inset-top, 0px) + clamp(18px, 6vw, 32px))
+               clamp(18px, 6vw, 32px)
+               calc(env(safe-area-inset-bottom, 0px) + clamp(24px, 7vw, 36px));
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      overflow-x: hidden;
       overflow-y: auto;
     }
 
     body.login-page.mobile-view.portrait-mobile {
-      padding: calc(env(safe-area-inset-top, 0px) + clamp(18px, 7vw, 28px))
+      padding: calc(env(safe-area-inset-top, 0px) + clamp(20px, 8vw, 32px))
                clamp(18px, 7vw, 28px)
-               calc(env(safe-area-inset-bottom, 0px) + clamp(24px, 8vw, 36px));
+               calc(env(safe-area-inset-bottom, 0px) + clamp(26px, 9vw, 38px));
+    }
+
+    body.login-page.mobile-view .background-stage {
+      display: block;
     }
 
     .background-stage {
@@ -198,10 +218,12 @@
       width: 100%;
       max-width: 440px;
       padding: clamp(18px, 6vw, 28px);
+      min-height: auto;
+      flex: 1 1 auto;
     }
 
     body.login-page.mobile-view.portrait-mobile .login-shell {
-      min-height: calc(var(--mobile-vh, 100dvh) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+      min-height: auto;
     }
 
     .login-container {
@@ -392,7 +414,7 @@
     }
 
     @media (max-width: 768px) {
-      body {
+      body.login-page {
         padding: clamp(16px, 4vw, 24px);
       }
 

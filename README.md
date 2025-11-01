@@ -41,11 +41,10 @@
 - 🔗 API 基地址定义在 index.html 中的 `API.baseUrl`（约 1300 行），可替换为自建接口域名。
 - 🎚️ 默认主题、播放模式等偏好可在 `state` 初始化逻辑中按需调整。
 
-## 🔐 访问控制建议
-- 若希望为站点加密访问，可在 Cloudflare Pages 站点设置中启用 **访问策略**，随后点击“管理”跳转至 Cloudflare Zero Trust。
-- 在 Zero Trust 控制台中新建策略，设置登录验证并限制仅允许特定邮箱访问。
-- 详细步骤可参考指南：https://blog.galois21.com/archives/2360 。
-- 配置了策略一定要在Zero Trust-应用程序里确认是否绑定 不绑定不生效
+## 🔐 访问控制设置
+- 在 Cloudflare Pages 项目的 **Settings → Functions → Environment variables** 中新增名为 `PASSWORD` 的环境变量，值为希望设置的访问口令。
+- 变量保存后重新部署站点，未登录的访问者会被自动重定向到 `/login` 页面并需输入该口令。
+- 若后续想关闭访问口令，只需在同一位置删除 `PASSWORD` 环境变量并重新部署。
 ## 🎵 使用流程
 1. 输入关键词并选择想要的曲库后发起搜索。
 2. 在结果列表中可试听、播放、下载或加入播放队列。

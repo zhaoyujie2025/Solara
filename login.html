@@ -36,29 +36,62 @@
       document.head.appendChild(link);
       const setViewportUnit = () => {
         const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-        document.documentElement.style.setProperty("--mobile-vh", `${viewportHeight}px`);
+        if (typeof viewportHeight === "number" && !Number.isNaN(viewportHeight)) {
+          document.documentElement.style.setProperty("--mobile-vh", `${viewportHeight}px`);
+        }
+      };
+      const updateLoginLayout = () => {
+        const body = document.body;
+        const viewport = window.visualViewport;
+        const rawWidth = viewport ? viewport.width : window.innerWidth;
+        const hasNumericWidth = typeof rawWidth === "number" && !Number.isNaN(rawWidth);
+        const fallbackWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+        const width = hasNumericWidth ? rawWidth : fallbackWidth;
+        const orientationQuery = typeof window.matchMedia === "function" ? window.matchMedia("(orientation: portrait)") : null;
+        const isPortrait = orientationQuery ? orientationQuery.matches : window.innerHeight >= window.innerWidth;
+        const isNarrow = width <= 820;
+        if (body) {
+          body.classList.toggle("portrait-mobile", Boolean(isPortrait && isNarrow));
+        }
+        let scale = 1;
+        if (width) {
+          if (isPortrait && width < 430) {
+            scale = Math.min(1, Math.max(0.8, width / 430));
+          } else if (!isPortrait && width < 540) {
+            scale = Math.min(1, Math.max(0.85, width / 540));
+          }
+        }
+        document.documentElement.style.setProperty("--login-scale", scale.toFixed(4));
+      };
+      const handleLayoutChange = () => {
+        setViewportUnit();
+        updateLoginLayout();
       };
       const applyBodyClass = () => {
         if (document.body) {
           document.body.classList.add("mobile-view");
-          setViewportUnit();
         }
+        handleLayoutChange();
       };
       if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", applyBodyClass, { once: true });
       } else {
         applyBodyClass();
       }
-      window.addEventListener("resize", setViewportUnit);
-      window.addEventListener("orientationchange", setViewportUnit);
+      window.addEventListener("resize", handleLayoutChange);
+      window.addEventListener("orientationchange", handleLayoutChange);
       if (window.visualViewport) {
-        window.visualViewport.addEventListener("resize", setViewportUnit);
-        window.visualViewport.addEventListener("scroll", setViewportUnit);
+        window.visualViewport.addEventListener("resize", handleLayoutChange);
+        window.visualViewport.addEventListener("scroll", handleLayoutChange);
       }
-      setViewportUnit();
+      handleLayoutChange();
     })();
   </script>
   <style>
+    :root {
+      --login-scale: 1;
+    }
+
     body {
       position: relative;
       margin: 0;
@@ -74,6 +107,27 @@
                   #07090f;
       overflow-x: hidden;
       overflow-y: auto;
+    }
+
+    body.login-page.mobile-view {
+      position: relative;
+      inset: auto;
+      width: auto;
+      height: auto;
+      min-height: var(--mobile-vh, 100dvh);
+      padding: clamp(18px, 6vw, 40px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    body.login-page.mobile-view.portrait-mobile {
+      padding: calc(env(safe-area-inset-top, 0px) + clamp(18px, 7vw, 28px))
+               clamp(18px, 7vw, 28px)
+               calc(env(safe-area-inset-bottom, 0px) + clamp(24px, 8vw, 36px));
     }
 
     .background-stage {
@@ -129,6 +183,25 @@
       position: relative;
       width: min(460px, 100%);
       z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-inline: auto;
+      min-height: calc(var(--mobile-vh, 100dvh) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    }
+
+    html.desktop-view .login-shell {
+      min-height: auto;
+    }
+
+    body.login-page.mobile-view .login-shell {
+      width: 100%;
+      max-width: 440px;
+      padding: clamp(18px, 6vw, 28px);
+    }
+
+    body.login-page.mobile-view.portrait-mobile .login-shell {
+      min-height: calc(var(--mobile-vh, 100dvh) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     }
 
     .login-container {
@@ -145,6 +218,16 @@
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
       color: #f2f6f9;
+      width: 100%;
+      transform: scale(var(--login-scale));
+      transform-origin: center;
+      transition: transform 0.25s ease;
+      will-change: transform;
+      margin-inline: auto;
+    }
+
+    body.login-page.mobile-view.portrait-mobile .login-container {
+      justify-content: center;
     }
 
     .login-header {
@@ -335,24 +418,23 @@
     }
 
     @media (max-width: 480px) {
-      body {
-        align-items: stretch;
-        padding: calc(env(safe-area-inset-top, 0px) + 16px)
-                 clamp(16px, 6vw, 24px)
-                 calc(env(safe-area-inset-bottom, 0px) + 24px);
+      body.login-page {
+        padding: clamp(16px, 7vw, 24px);
       }
 
-      .login-shell {
-        width: 100%;
-        display: flex;
-        align-items: stretch;
+      body.login-page.mobile-view {
+        padding: calc(env(safe-area-inset-top, 0px) + clamp(16px, 7vw, 24px))
+                 clamp(16px, 7vw, 24px)
+                 calc(env(safe-area-inset-bottom, 0px) + clamp(22px, 8vw, 30px));
       }
 
-      .login-container {
+      body.login-page .login-shell {
         width: 100%;
+        max-width: 420px;
+      }
+
+      body.login-page .login-container {
         padding: clamp(24px, 7vw, 32px);
-        min-height: calc(var(--mobile-vh, 100dvh) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-        justify-content: center;
       }
 
       .login-footer {
@@ -363,7 +445,7 @@
     }
   </style>
 </head>
-<body>
+<body class="login-page">
   <div class="background-stage">
     <div class="background-stage__layer"></div>
     <div class="background-stage__overlay"></div>

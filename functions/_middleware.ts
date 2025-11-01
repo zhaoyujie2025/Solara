@@ -34,8 +34,9 @@ function isPublicPath(pathname: string): boolean {
 
 export async function onRequest(context: any) {
   const { request, env } = context;
-  const password = env.PASSWORD ?? "0";
-  if (password === "0") {
+  const password = env.PASSWORD;
+
+  if (typeof password !== "string") {
     return context.next();
   }
 

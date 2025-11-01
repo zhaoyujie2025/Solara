@@ -156,13 +156,18 @@
       width: 64px;
       height: 64px;
       border-radius: 20px;
-      background: linear-gradient(140deg, rgba(26, 188, 156, 0.85), rgba(52, 152, 219, 0.6));
+      background: rgba(12, 18, 24, 0.75);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #ffffff;
-      font-size: 28px;
       box-shadow: 0 12px 30px rgba(26, 188, 156, 0.35);
+      overflow: hidden;
+    }
+
+    .logo-circle img {
+      width: 70%;
+      height: 70%;
+      object-fit: contain;
     }
 
     .title-group {
@@ -183,11 +188,6 @@
       margin: 0;
       color: rgba(255, 255, 255, 0.75);
       font-size: 0.95rem;
-    }
-
-    .login-highlight {
-      color: #33d3af;
-      font-weight: 500;
     }
 
     .login-form {
@@ -279,10 +279,11 @@
 
     .login-footer {
       display: flex;
-      justify-content: space-between;
+      justify-content: center;
       align-items: center;
       font-size: 0.8rem;
       color: rgba(255, 255, 255, 0.4);
+      text-align: center;
     }
 
     .login-footer .status-dot {
@@ -292,17 +293,12 @@
       border-radius: 50%;
       background: #33d3af;
       box-shadow: 0 0 10px rgba(51, 211, 175, 0.5);
-      margin-right: 6px;
     }
 
-    .login-footer a {
-      color: rgba(255, 255, 255, 0.55);
-      text-decoration: none;
-      transition: color 0.3s ease;
-    }
-
-    .login-footer a:hover {
-      color: rgba(255, 255, 255, 0.8);
+    .login-footer .status-message {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
 
     @media (max-width: 768px) {
@@ -323,12 +319,11 @@
       .logo-circle {
         width: 56px;
         height: 56px;
-        font-size: 24px;
       }
 
       .login-footer {
         flex-direction: column;
-        align-items: flex-start;
+        align-items: center;
         gap: 8px;
       }
     }
@@ -354,7 +349,7 @@
 
       .login-footer {
         flex-direction: column;
-        align-items: flex-start;
+        align-items: center;
         gap: 10px;
       }
     }
@@ -368,10 +363,12 @@
   <main class="login-shell">
     <section class="login-container">
       <header class="login-header">
-        <div class="logo-circle"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i></div>
+        <div class="logo-circle" aria-hidden="true">
+          <img src="/favicon.svg" alt="">
+        </div>
         <div class="title-group">
           <h1 class="login-title">Solara</h1>
-          <p class="login-desc">访问受到 <span class="login-highlight">环境变量</span> 的口令保护</p>
+          <p class="login-desc">访问受到保护</p>
         </div>
       </header>
       <form class="login-form" id="login-form">
@@ -382,15 +379,15 @@
             <input type="password" id="password" placeholder="请输入密码" autocomplete="current-password" required>
           </div>
         </div>
-        <p class="login-hint">只有在服务器环境变量中配置了正确口令的成员才能继续访问内容。</p>
+        <p class="login-hint">只有输入了正确口令的成员才能继续访问内容。</p>
         <button type="submit">进入 Solara</button>
       </form>
       <footer class="login-footer" aria-live="polite">
-        <span><span class="status-dot" aria-hidden="true"></span>安全状态：受保护</span>
-        <a href="https://emby.media" target="_blank" rel="noreferrer noopener">界面灵感来自 Emby</a>
+        <span class="status-message"><span class="status-dot" aria-hidden="true"></span>安全状态：受保护</span>
       </footer>
     </section>
   </main>
+  <div id="notification" class="notification" role="status" aria-live="polite"></div>
   <script>
     (function () {
       const storedExpiry = localStorage.getItem("authExpiry");
@@ -398,6 +395,25 @@
         localStorage.removeItem("authExpiry");
       }
     })();
+    const notification = document.getElementById("notification");
+    let notificationTimer;
+    const showNotification = (message, type = "success") => {
+      if (!notification) {
+        if (typeof window.alert === "function") {
+          window.alert(message);
+        }
+        return;
+      }
+      notification.textContent = message;
+      notification.className = `notification ${type}`;
+      notification.classList.add("show");
+      if (notificationTimer) {
+        clearTimeout(notificationTimer);
+      }
+      notificationTimer = window.setTimeout(() => {
+        notification.classList.remove("show");
+      }, 3000);
+    };
     document.getElementById("login-form")?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const pwdInput = document.getElementById("password");
@@ -413,10 +429,10 @@
           window.location.href = "/";
           return;
         }
-        alert("密码错误，请重试");
+        showNotification("密码错误，请重试", "error");
       } catch (error) {
         console.error(error);
-        alert("登录出错，请稍后再试");
+        showNotification("登录出错，请稍后再试", "error");
       }
     });
   </script>

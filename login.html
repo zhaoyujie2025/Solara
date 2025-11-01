@@ -137,9 +137,9 @@
   </div>
   <script>
     (function () {
-      const expiry = localStorage.getItem("authExpiry");
-      if (expiry && Date.now() < parseInt(expiry, 10)) {
-        window.location.href = "/";
+      const storedExpiry = localStorage.getItem("authExpiry");
+      if (storedExpiry) {
+        localStorage.removeItem("authExpiry");
       }
     })();
     document.getElementById("login-form")?.addEventListener("submit", async (event) => {
@@ -153,8 +153,6 @@
           body: JSON.stringify({ password }),
         });
         if (response.ok) {
-          const expiryTime = Date.now() + 48 * 60 * 60 * 1000;
-          localStorage.setItem("authExpiry", expiryTime.toString());
           window.location.href = "/";
           return;
         }
